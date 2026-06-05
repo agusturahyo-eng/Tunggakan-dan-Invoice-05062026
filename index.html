@@ -471,22 +471,10 @@ function drawTable(data) {
   document.getElementById("tableArea").innerHTML = h + `</tbody></table></div>`;
 }
 
-// === NEW FAST IMPLEMENTATION FOR showCardsByData ===
-window.triggerCreatePDF = (idpel) => {
-  const r = currentDetail.find(x => String(x.idpel) === String(idpel));
-  if (r) createPDF(r);
-};
-
-window.triggerCreateImage = (idpel) => {
-  const r = currentDetail.find(x => String(x.idpel) === String(idpel));
-  if (r) createImage(r);
-};
-
 function showCardsByData(id) {
   pushView(renderDetail);
   let h = "";
   currentDetail.forEach(r => {
-    let btnGambar = currentSheet !== 'invoice' ? `<button class="btn btn-warning btn-sm text-dark fw-bold" onclick="triggerCreateImage('${r.idpel}')">🖼️ Gambar</button>` : '';
     h += `<div class="card mb-2 ${r.idpel === id?'highlight':''}" id="card-${r.idpel}"><div class="card-body p-2">
       <div class="d-flex justify-content-between"><b>${r.nama}</b> <span class="badge bg-light text-dark">${r.koked}</span></div>
       <p class="text-muted mb-1">${r.idpel} | ${r.tarif}/${r.daya} | ${r.alamat || '-'}</p>
@@ -494,8 +482,8 @@ function showCardsByData(id) {
         <b class="text-danger">Rp ${parseIDR(r.jumlah).toLocaleString("id-ID")}</b>
         <div class="d-flex gap-1">
           <a class="btn btn-success btn-sm" target="_blank" href="https://wa.me/?text=${getFullText(r, 'WA')}">📤 WA</a>
-          <button class="btn btn-danger btn-sm" onclick="triggerCreatePDF('${r.idpel}')">📄 PDF</button>
-          ${btnGambar}
+          <button class="btn btn-danger btn-sm" onclick='createPDF(${JSON.stringify(r)})'>📄 PDF</button>
+          ${currentSheet === 'invoice' ? '' : `<button class="btn btn-warning btn-sm text-dark fw-bold" onclick='createImage(${JSON.stringify(r).replace(/'/g, "&#39;")})'>🖼️ Gambar</button>`}
         </div>
       </div>
     </div></div>`;
@@ -503,7 +491,6 @@ function showCardsByData(id) {
   view.innerHTML = h;
   if(id) setTimeout(() => document.getElementById(`card-${id}`).scrollIntoView({behavior:'smooth', block:'center'}), 100);
 }
-// ===================================================
 
 const getFullText = (r, type) => {
   const date = new Date();
@@ -515,37 +502,7 @@ const getFullText = (r, type) => {
   
   if (currentSheet === 'invoice') {
     if (type === 'WA') {
-      return encodeURIComponent("*PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY*
-*UP3 KLATEN*
-*ULP TULUNG*
-
-*PEMBERITAHUAN TAGIHAN LISTRIK*
-==========================================
-Pelanggan setia PLN,
-*Nama* : " + r.nama + "
-*GarduTiang* : " + (r.gardu || '-') + "
-*Idpel* : " + r.idpel + "
-*Koked* : " + r.koked + "
-*Alamat* : " + (r.alamat || '-') + "
-*Tarif / Daya* : " + r.tarif + " / " + r.daya + "
-*No. Kwh* : " + (r.no_kwh || '-') + "
-
-Bersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan *" + blnIniFull + " " + date.getFullYear() + "* adalah *" + parseIDR(r.jumlah).toLocaleString("id-ID") + "*.
-
-Agar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi.
-Batas akhir pembayaran tagihan listrik adalah tanggal 20 setiap bulannya & hari libur transaksi masih bisa dilakukan pada Loket-loket PPOB online.
-
-Apabila sampai dengan batas waktu yang ditentukan, tanggal 20 belum lunas, maka akan dilakukan pemutusan aliran listrik.
-Demikian atas perhatian dan kerjasamanya diucapkan terimakasih.
-
-Tulung, " + date.getDate() + " " + blnIniFull + " " + date.getFullYear() + "
-
-*BAYARLAH LISTRIK TANGGAL 1-15 SETIAP BULANNYA*
-*PASTI NYAMAN SEMUA SENANG*
-
-*MARTONO AJI PRABOWO*
-
-_ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN_");
+      return encodeURIComponent("*PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY*\n*UP3 KLATEN*\n*ULP TULUNG*\n\n*PEMBERITAHUAN TAGIHAN LISTRIK*\n==========================================\nPelanggan setia PLN,\n*Nama* : " + r.nama + "\n*GarduTiang* : " + (r.gardu || '-') + "\n*Idpel* : " + r.idpel + "\n*Koked* : " + r.koked + "\n*Alamat* : " + (r.alamat || '-') + "\n*Tarif / Daya* : " + r.tarif + " / " + r.daya + "\n*No. Kwh* : " + (r.no_kwh || '-') + "\n\nBersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan *" + blnIniFull + " " + date.getFullYear() + "* adalah *" + parseIDR(r.jumlah).toLocaleString("id-ID") + "*.\n\nAgar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi.\nBatas akhir pembayaran tagihan listrik adalah tanggal 20 setiap bulannya & hari libur transaksi masih bisa dilakukan pada Loket-loket PPOB online.\n\nApabila sampai dengan batas waktu yang ditentukan, tanggal 20 belum lunas, maka akan dilakukan pemutusan aliran listrik.\nDemikian atas perhatian dan kerjasamanya diucapkan terimakasih.\n\nTulung, " + date.getDate() + " " + blnIniFull + " " + date.getFullYear() + "\n\n*BAYARLAH LISTRIK TANGGAL 1-15 SETIAP BULANNYA*\n*PASTI NYAMAN SEMUA SENANG*\n\n*MARTONO AJI PRABOWO*\n\n_ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN_");
     }
     return { tgl: `${date.getDate()} ${blnIniFull} ${date.getFullYear()}`, blnIniFull };
   } else {
@@ -554,40 +511,7 @@ _ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN_");
     const body2 = "Penyambungan kembali akan dilakukan pada setiap hari jam kerja apabila rekening serta biaya keterlambatan dilunasi di tempat penerimaan pembayaran rekening listrik, kantor pos, atau bank yang ditunjuk oleh PLN.";
     const body3 = "Apabila dalam jangka waktu 60 hari terhitung sejak dilakukan pemutusan sementara tunggakan belum dilunasi, maka instalasi milik PLN akan dibongkar, dan penyambungan kembali dapat dilaksanakan setelah Saudara menyelesaikan Biaya Penyambungan yang diperlakukan sebagai sambungan baru serta tetap diwajibkan membayar tagihan listrik yang belum dilunasi beserta dendanya.";
     if (type === 'WA') {
-      return encodeURIComponent("*PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY*
-*UP3 KLATEN*
-*ULP TULUNG*
-
-*PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK*
-==========================================
-*Kepada Yth.*
-*Nama* : " + r.nama + "
-*ID. Pelanggan* : " + r.idpel + "
-*Alamat* : " + (r.alamat || '-') + "
-*Tarip / Daya* : " + r.tarif + " / " + r.daya + "
-*Koked* : " + r.koked + "
-
-*Rekening* : " + periode + "
-*Rp.* : " + parseIDR(r.rptag).toLocaleString("id-ID") + "
-*Jumlah Biaya Keterlambatan s.d bulan : " + blnIni + "*
-*Rp.* : " + parseIDR(r.rpbk).toLocaleString("id-ID") + "
-
-*Jumlah Tunggakan (belum termasuk biaya Administrasi)*
-*Rp.* : *" + parseIDR(r.jumlah).toLocaleString("id-ID") + "*
-
-" + body1 + "
-
-" + body2 + "
-
-" + body3 + "
-
-*UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS*
-
-TULUNG, " + date.getDate() + " " + nBulanFull[date.getMonth()] + " " + date.getFullYear() + "
-*MANAGER*
-*MARTONO AJI PRABOWO*
-
-_ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN_");
+      return encodeURIComponent("*PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY*\n*UP3 KLATEN*\n*ULP TULUNG*\n\n*PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK*\n==========================================\n*Kepada Yth.*\n*Nama* : " + r.nama + "\n*ID. Pelanggan* : " + r.idpel + "\n*Alamat* : " + (r.alamat || '-') + "\n*Tarip / Daya* : " + r.tarif + " / " + r.daya + "\n*Koked* : " + r.koked + "\n\n*Rekening* : " + periode + "\n*Rp.* : " + parseIDR(r.rptag).toLocaleString("id-ID") + "\n*Jumlah Biaya Keterlambatan s.d bulan : " + blnIni + "*\n*Rp.* : " + parseIDR(r.rpbk).toLocaleString("id-ID") + "\n\n*Jumlah Tunggakan (belum termasuk biaya Administrasi)*\n*Rp.* : *" + parseIDR(r.jumlah).toLocaleString("id-ID") + "*\n\n" + body1 + "\n\n" + body2 + "\n\n" + body3 + "\n\n*UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS*\n\nTULUNG, " + date.getDate() + " " + nBulanFull[date.getMonth()] + " " + date.getFullYear() + "\n*MANAGER*\n*MARTONO AJI PRABOWO*\n\n_ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN_");
     }
     return { periode, blnIni, body1, body2, body3, tgl: `${date.getDate()} ${nBulanFull[date.getMonth()]} ${date.getFullYear()}` };
   }
