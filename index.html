@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Rekap Tunggakan & Invoice ULP Tulung</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+body { background: #f4f6f9; font-family: sans-serif; }
+.clickable { cursor: pointer; user-select: none; }
+tr:hover { background-color: #eef3ff !important; }
+tr:hover td.freeze-col { background-color: #eef3ff !important; }
+.table-primary th:hover { background-color: #0d6efd !important; color: white; }
+.card.highlight { border: 2px solid #0d6efd; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+.card-body p { margin-bottom: 2px; line-height: 1.2; font-size: 0.85rem; }
+
+/* WARNA HEADER TABEL REKAP (UBAH DI SINI) */
+.table-rekap thead th {
+    background-color: #0d6efd !important; /* Saat ini Biru. Ganti ke #198754 untuk Hijau, #dc3545 untuk Merah */
+    color: white !important;              /* Warna teks header */
+    border-color: #0b5ed7 !important;     /* Warna garis pembatas header */
+}
+
+/* PENYESUAIAN TINGGI BARIS (PADDING DIKECILKAN) */
+.table-rekap th, .table-rekap td { 
+    vertical-align: middle; 
+    text-align: center; 
+    white-space: nowrap; 
+    border: 1px solid #dee2e6; 
+    padding: 2px 4px !important; /* Atas-bawah 2px, Kiri-kanan 4px agar baris lebih rapat */
+    line-height: 1.2;
+}
+
+.freeze-col { position: sticky; left: 0; z-index: 1; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
+
+/* --- PENGATURAN TAMPILAN PC VS HP --- */
+.rekap-container {
+    max-height: 75vh;
+    overflow: auto;
+}
+
+/* Jika dibuka di layar PC/Laptop (lebar min 992px) */
+@media (min-width: 992px) {
+    .rekap-container {
+        max-height: none !important; /* Hilangkan batas tinggi */
+        overflow: visible !important; /* Hilangkan scroll internal tabel */
+    }
+    .table-responsive {
+        overflow: visible !important; /* Biarkan tabel melebar penuh */
+    }
+}
+</style>
+</head>
+<body>
+<div class="container-fluid my-3">
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link active" id="tab-lembar1" onclick="loadSheet('lembar1')">Lembar 1</a></li>
+  <li class="nav-item"><a class="nav-link" id="tab-lembar2" onclick="loadSheet('lembar2')">Lembar 2</a></li>
+  <li class="nav-item"><a class="nav-link" id="tab-lembar3" onclick="loadSheet('lembar3')">Lembar 3</a></li>
+  <li class="nav-item"><a class="nav-link" id="tab-invoice" onclick="loadSheet('invoice')">Invoice</a></li>
+</ul>
+<h4 class="text-center text-primary mb-1">⚡ Rekap Tunggakan & Invoice</h4>
+<h4 class="text-center text-primary mb-2"> ULP Tulung</h4>
+
+<div id="updateInfo" class="text-center text-secondary small mb-3 p-2 bg-white rounded shadow-sm mx-auto" style="max-width: 650px;">
+  Memperbarui info sinkronisasi...
+</div>
+
+<button id="backBtn" class="btn btn-secondary btn-sm mb-2 d-none">⬅ Kembali</button>
+<div id="view"></div>
+</div>
+
+<script>
+const { jsPDF } = window.jspdf;
+const SHEETS = {
+  lembar1: {url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0oO36v0vrge07HwX1zLsrGfuUxElZ3becef4DFHLNxsz2Lrohya5oThpvmkjzsNBF3_9hSdq0q4Ko/pub?gid=354207978&single=true&output=csv"},
+  lembar2: {url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0oO36v0vrge07HwX1zLsrGfuUxElZ3becef4DFHLNxsz2Lrohya5oThpvmkjzsNBF3_9hSdq0q4Ko/pub?gid=311394824&single=true&output=csv"},
+  lembar3: {url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0oO36v0vrge07HwX1zLsrGfuUxElZ3becef4DFHLNxsz2Lrohya5oThpvmkjzsNBF3_9hSdq0q4Ko/pub?gid=654408403&single=true&output=csv"},
+  invoice: {url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0oO36v0vrge07HwX1zLsrGfuUxElZ3becef4DFHLNxsz2Lrohya5oThpvmkjzsNBF3_9hSdq0q4Ko/pub?gid=1657322319&single=true&output=csv"}
+};
+
+let allData = [], currentDetail = [], currentTitle = "", currentPetugas = "Semua", currentSheet = "lembar1";
+let historyStack = [], sortState = { key: null, asc: true };
+
+const parseIDR = (val) => {
+  if (!val) return 0;
+  let clean = String(val).replace(/[^0-9,-]/g, '').split(',')[0];
+  return parseFloat(clean) || 0;
+};
+
+function getStatusLunas(r) {
+  const valRaw = (r['tgl_lunas'] || r['Tgl Lunas'] || r['tgl lunas'] || "").toString().trim();
+  const isBelum = valRaw === "" || valRaw === "-" || valRaw === "0" || valRaw.toUpperCase().includes("BELUM");
+  return { isLunas: !isBelum, tgl: isBelum ? "BELUM LUNAS" : valRaw };
+}
+
+function parseTgl(tglStr) {
+  if (!tglStr) return 0;
+  if (!isNaN(tglStr)) return parseInt(tglStr, 10);
+  const parts = tglStr.split(/[\/\- ]/); 
+  if (parts.length >= 3) {
+    let day = parseInt(parts[0], 10);
+    let month = parseInt(parts[1], 10) - 1; 
+    let year = parseInt(parts[2], 10);
+    if (year < 100) year += 2000; 
+    return new Date(year, month, day).getTime();
+  }
+  let d = new Date(tglStr).getTime();
+  return isNaN(d) ? 0 : d;
+}
+
+function getDayFromTgl(tglStr) {
+    if (!tglStr || tglStr === "BELUM LUNAS") return null;
+    const parts = tglStr.split(/[\/\- ]/);
+    if (parts.length > 0) {
+        let d = parseInt(parts[0], 10);
+        if (!isNaN(d)) return d;
+    }
+    return null;
+}
+
+function loadSheet(k) {
+  currentSheet = k; historyStack = []; currentPetugas = "Semua"; 
+  document.querySelectorAll(".nav-link").forEach(t => t.classList.remove("active"));
+  document.getElementById("tab-" + k).classList.add("active");
+  view.innerHTML = "<p class='text-center'>Memuat data...</p>";
+  document.getElementById("updateInfo").innerHTML = "Memperbarui info sinkronisasi...";
+
+  fetch(SHEETS[k].url).then(r => r.text()).then(csv => {
+    allData = Papa.parse(csv, { header: true, skipEmptyLines: true, transformHeader: h => h.trim() }).data;
+    
+    let waktuUpdate = "Belum Ada Catatan Update";
+    let barisUpdate = allData.find(r => r.TERAKHIR_UPDATE && r.TERAKHIR_UPDATE.trim() !== "");
+    if (barisUpdate) {
+        waktuUpdate = barisUpdate.TERAKHIR_UPDATE;
+    }
+
+    const sekarang = new Date();
+    const waktuBuka = sekarang.toLocaleTimeString("id-ID", {hour: '2-digit', minute:'2-digit'});
+    
+    document.getElementById("updateInfo").innerHTML = `
+      🕒 <b>Tgl Update:</b> <span class="text-danger fw-bold">${waktuUpdate} WIB</span> 
+      &nbsp;|&nbsp; 
+      🔄 <b>Halaman Direfresh:</b> <span class="text-primary">${waktuBuka} WIB</span>
+    `;
+
+    renderPetugas();
+  });
+}
+
+function pushView(fn) { historyStack.push(fn); backBtn.classList.remove("d-none"); }
+backBtn.onclick = () => {
+  if (historyStack.length > 0) historyStack.pop()();
+  if (historyStack.length === 0) { backBtn.classList.add("d-none"); renderPetugas(); }
+};
+
+function getWarnaProgress(persen, sisaLbr) {
+    if (sisaLbr === 0) return { bg: '#0d47a1', text: 'white' }; 
+    if (persen >= 100) return { bg: '#00b0ff', text: 'black' }; 
+    if (persen >= 91) return { bg: '#aed581', text: 'black' };  
+    if (persen >= 61) return { bg: '#ffeb3b', text: 'black' };  
+    if (persen >= 21) return { bg: '#f44336', text: 'white' };  
+    return { bg: '#000000', text: 'white' };                    
+}
+
+function hitungTargetLembar(sisaSaldoLembar, startDay, targetEndDay) {
+    const tglSekarang = new Date().getDate(); 
+    if (sisaSaldoLembar <= 0) return 0;
+    if (tglSekarang < startDay) return 0;
+    if (tglSekarang >= targetEndDay) return sisaSaldoLembar;
+    return Math.ceil(sisaSaldoLembar / (targetEndDay - tglSekarang + 1));
+}
+
+function renderPetugas() {
+  const map = {}; 
+  const sekarang = new Date();
+  const tglTerakhirBulanIni = new Date(sekarang.getFullYear(), sekarang.getMonth() + 1, 0).getDate();
+  
+  let startDay = 1, targetEndDay = 31, displayEndDay = 31;
+  
+  if (currentSheet === 'lembar1') {
+      startDay = 21; 
+      targetEndDay = tglTerakhirBulanIni; 
+      displayEndDay = tglTerakhirBulanIni;
+  } else if (currentSheet === 'lembar2' || currentSheet === 'lembar3' || currentSheet === 'invoice') {
+      startDay = 1; 
+      targetEndDay = 20; 
+      displayEndDay = tglTerakhirBulanIni; 
+  }
+
+  allData.forEach(r => {
+    let groupKey = r.kode || "TANPA-KODE";
+    let pName = r.petugas || r.nama_petugas || "Tanpa Nama"; 
+    let koordinator = r.koordinator || ""; 
+    
+    let status = getStatusLunas(r);
+    let rp = parseIDR(r.jumlah);
+
+    if (!map[groupKey]) {
+      map[groupKey] = { 
+          koordinator: koordinator, kode: groupKey, nama_petugas: pName,
+          j_total: 0, rp_total: 0, j_sisa: 0, rp_sisa: 0, lunas_harian: {}, max_tgl_lunas: 0 
+      };
+    }
+
+    map[groupKey].j_total++;
+    map[groupKey].rp_total += rp;
+
+    if (status.isLunas) {
+        let hari = getDayFromTgl(status.tgl);
+        if (hari !== null) {
+            map[groupKey].max_tgl_lunas = Math.max(map[groupKey].max_tgl_lunas, hari);
+            map[groupKey].lunas_harian[hari] = (map[groupKey].lunas_harian[hari] || 0) + 1;
+        }
+    } else {
+        map[groupKey].j_sisa++;
+        map[groupKey].rp_sisa += rp;
+    }
+  });
+
+  const sorted = Object.keys(map).map(k => ({key: k, ...map[k]}))
+    .sort((a, b) => {
+        let kA = (a.koordinator || "").toUpperCase();
+        let kB = (b.koordinator || "").toUpperCase();
+        if (kA === kB) return (a.kode || "").localeCompare(b.kode || "");
+        return kA.localeCompare(kB);
+    });
+
+  let sumHarianGlobal = {};
+  sorted.forEach(p => {
+      Object.keys(p.lunas_harian).forEach(d => {
+          sumHarianGlobal[d] = (sumHarianGlobal[d] || 0) + p.lunas_harian[d];
+      });
+  });
+
+  let h = `<div class="table-responsive rekap-container">
+    <table class="table table-sm table-rekap" style="font-size: 0.75rem;">
+      <thead style="position: sticky; top: 0; z-index: 2;">
+        <tr>
+          <th rowspan="2" class="align-middle">NO</th>
+          <th rowspan="2" class="align-middle text-start">KOORDINATOR</th>
+          <th rowspan="2" class="align-middle text-start">KODE</th>
+          <th rowspan="2" class="align-middle freeze-col text-start">PETUGAS</th>
+          <th colspan="2">TOTAL SALDO</th>
+          <th colspan="2">SALDO SAAT INI</th>
+          <th rowspan="2" class="align-middle">TARGET HARI INI</th>
+          <th colspan="${displayEndDay - startDay + 1}">JUMLAH LUNAS TANGGAL</th>
+          <th rowspan="2" class="align-middle">PROGRES TOTAL</th>
+          <th rowspan="2" class="align-middle">TANGGAL NIHIL</th>
+        </tr>
+        <tr>
+          <th>LEMBAR</th><th class="text-end">RUPIAH</th>
+          <th>LEMBAR</th><th class="text-end">RUPIAH</th>`;
+          
+  for (let i = startDay; i <= displayEndDay; i++) { h += `<th>${i}</th>`; }
+  h += `</tr></thead><tbody>`;
+
+  let no = 1;
+  let sumTotalLbr = 0, sumTotalRp = 0, sumSisaLbr = 0, sumSisaRp = 0;
+  let sumTargetHarian = 0; 
+  let globalMaxTglLunas = 0;
+
+  const paletKoordinator = ["#e3f2fd", "#e8f5e9", "#fff3e0", "#f3e5f5", "#ffebee"]; 
+  let lastKoord = null;
+  let indexWarnaKoord = -1; 
+  let toggleBaris = 0;      
+
+  sorted.forEach(p => { 
+    if (p.koordinator !== lastKoord) {
+        lastKoord = p.koordinator;
+        indexWarnaKoord++; 
+        if (indexWarnaKoord >= paletKoordinator.length) indexWarnaKoord = 0; 
+        toggleBaris = 0; 
+    }
+
+    let currentBgColor = (toggleBaris % 2 === 0) ? paletKoordinator[indexWarnaKoord] : "#ffffff";
+    toggleBaris++;
+
+    let progress = 0;
+    if (p.j_total > 0) {
+        progress = Math.round(((p.j_total - p.j_sisa) / p.j_total) * 100);
+    }
+    
+    sumTotalLbr += p.j_total; sumTotalRp += p.rp_total;
+    sumSisaLbr += p.j_sisa; sumSisaRp += p.rp_sisa;
+    globalMaxTglLunas = Math.max(globalMaxTglLunas, p.max_tgl_lunas);
+
+    let targetDinamis = hitungTargetLembar(p.j_sisa, startDay, targetEndDay);
+    sumTargetHarian += targetDinamis;
+
+    let wTotal = getWarnaProgress(progress, p.j_sisa);
+    let tglNihil = p.j_sisa === 0 ? (p.max_tgl_lunas > 0 ? p.max_tgl_lunas : 'SELESAI') : 'BELUM';
+
+    let rowHtml = `<tr class="clickable" onclick="openPetugas('${p.kode}')">
+      <td class="text-center" style="background-color: ${currentBgColor};">${no++}</td>
+      <td class="text-start fw-bold" style="background-color: ${currentBgColor};">${p.koordinator}</td>
+      <td class="text-start" style="background-color: ${currentBgColor};">${p.kode}</td>
+      <td class="text-start freeze-col fw-bold" style="background-color: ${currentBgColor};">${p.nama_petugas}</td>
+      <td class="text-center" style="background-color: ${currentBgColor};">${p.j_total}</td>
+      <td class="text-end" style="background-color: ${currentBgColor};">Rp ${p.rp_total.toLocaleString("id-ID")}</td>
+      <td class="text-center" style="background-color: ${wTotal.bg}; color: ${wTotal.text};">${p.j_sisa}</td>
+      <td class="text-end" style="background-color: ${wTotal.bg}; color: ${wTotal.text};">Rp ${p.rp_sisa.toLocaleString("id-ID")}</td>
+      <td class="text-center fw-bold text-primary fs-6" style="background-color: #ffffff;">${targetDinamis}</td>`;
+
+    let sisaSimulasi = p.j_total;
+    for (let d = 1; d < startDay; d++) {
+        if (p.lunas_harian[d]) sisaSimulasi -= p.lunas_harian[d];
+    }
+
+    for (let i = startDay; i <= displayEndDay; i++) {
+        let val = p.lunas_harian[i] || 0;
+        
+        let targetSimulasi = 0;
+        if (sisaSimulasi > 0) {
+            if (i >= targetEndDay) {
+                targetSimulasi = sisaSimulasi; 
+            } else {
+                targetSimulasi = Math.ceil(sisaSimulasi / (targetEndDay - i + 1));
+            }
+        }
+
+        let persen = 0;
+        if (targetSimulasi > 0) {
+            persen = Math.round((val / targetSimulasi) * 100);
+        } else if (targetSimulasi === 0 && val > 0) {
+            persen = 100;
+        }
+
+        let wHarian;
+        if (p.j_sisa === 0 && i >= p.max_tgl_lunas) {
+            wHarian = { bg: '#0d47a1', text: 'white' };
+        } else {
+            wHarian = getWarnaProgress(persen, 1);
+        }
+
+        rowHtml += `<td class="text-center" style="background-color: ${wHarian.bg}; color: ${wHarian.text}; border: 1px solid #555;">${val}</td>`;
+        
+        sisaSimulasi -= val; 
+    }
+
+    rowHtml += `
+      <td class="text-center" style="background-color: ${wTotal.bg}; color: ${wTotal.text}; font-weight: bold;">${progress}%</td>
+      <td class="text-center fw-bold" style="background-color: #ffffff;">${tglNihil}</td>
+    </tr>`; 
+    h += rowHtml;
+  });
+
+  let totalProgress = Math.round(((sumTotalLbr - sumSisaLbr) / sumTotalLbr) * 100) || 0;
+  let wGrandTotal = getWarnaProgress(totalProgress, sumSisaLbr);
+  let globalTglNihil = sumSisaLbr === 0 ? (globalMaxTglLunas > 0 ? globalMaxTglLunas : 'SELESAI') : 'BELUM';
+
+  h += `<tr class="fw-bold" style="background-color: #e0f7fa; cursor: pointer;" onclick="openGlobal()">
+      <td colspan="4" class="text-center freeze-col" style="background-color: #e0f7fa;">JUMLAH KESELURUHAN</td>
+      <td class="text-center">${sumTotalLbr}</td><td class="text-end">Rp ${sumTotalRp.toLocaleString("id-ID")}</td>
+      <td class="text-center" style="background-color: ${wGrandTotal.bg}; color: ${wGrandTotal.text};">${sumSisaLbr}</td>
+      <td class="text-end" style="background-color: ${wGrandTotal.bg}; color: ${wGrandTotal.text};">Rp ${sumSisaRp.toLocaleString("id-ID")}</td>
+      <td class="text-center fw-bold text-primary fs-6">${sumTargetHarian}</td>`;
+      
+  let globalSisaSimulasi = sumTotalLbr;
+  for (let d = 1; d < startDay; d++) {
+      if (sumHarianGlobal[d]) globalSisaSimulasi -= sumHarianGlobal[d];
+  }
+
+  for (let i = startDay; i <= displayEndDay; i++) {
+      let val = sumHarianGlobal[i] || 0;
+      
+      let targetSimulasi = 0;
+      if (globalSisaSimulasi > 0) {
+          if (i >= targetEndDay) {
+              targetSimulasi = globalSisaSimulasi;
+          } else {
+              targetSimulasi = Math.ceil(globalSisaSimulasi / (targetEndDay - i + 1));
+          }
+      }
+
+      let persen = 0;
+      if (targetSimulasi > 0) {
+          persen = Math.round((val / targetSimulasi) * 100);
+      } else if (targetSimulasi === 0 && val > 0) {
+          persen = 100;
+      }
+
+      let wTotalHarian;
+      if (sumSisaLbr === 0 && i >= globalMaxTglLunas) {
+          wTotalHarian = { bg: '#0d47a1', text: 'white' };
+      } else {
+          wTotalHarian = getWarnaProgress(persen, 1);
+      }
+      
+      h += `<td class="text-center" style="background-color: ${wTotalHarian.bg}; color: ${wTotalHarian.text}; border: 1px solid #555;">${val}</td>`;
+      
+      globalSisaSimulasi -= val;
+  }
+  
+  h += `<td class="text-center" style="background-color: ${wGrandTotal.bg}; color: ${wGrandTotal.text};">${totalProgress}%</td>
+        <td class="text-center">${globalTglNihil}</td></tr>`;
+  view.innerHTML = h + `</tbody></table></div>`;
+}
+
+function openPetugas(k) {
+  currentPetugas = k; pushView(renderPetugas);
+  const data = allData.filter(r => r.kode === k);
+  let displayName = data.length > 0 ? (data[0].petugas || data[0].nama_petugas || k) : k;
+  
+  const lunas = data.filter(r => getStatusLunas(r).isLunas);
+  const belum = data.filter(r => !getStatusLunas(r).isLunas);
+  const byDate = {};
+  
+  lunas.forEach(r => { 
+    let t = getStatusLunas(r).tgl;
+    byDate[t] = byDate[t] || {j: 0, rp: 0}; 
+    byDate[t].j++; byDate[t].rp += parseIDR(r.jumlah); 
+  });
+  
+  let h = `<h6 class="text-primary fw-bold">Petugas: ${displayName} (${k})</h6><div class="table-responsive"><table class="table table-sm table-bordered table-striped"><thead class="table-success text-center"><tr><th class="text-start">Tanggal Lunas</th><th class="text-center">Plg</th><th class="text-end">Total Rp</th></tr></thead><tbody>`;
+  if (belum.length > 0) h += `<tr class="clickable" onclick="detailBelum()"><td class="text-start">BELUM LUNAS</td><td class="text-center">${belum.length}</td><td class="text-end">${belum.reduce((a,b)=>a+parseIDR(b.jumlah),0).toLocaleString("id-ID")}</td></tr>`;
+  
+  Object.keys(byDate).sort((a,b) => parseTgl(a) - parseTgl(b)).forEach(t => { h += `<tr class="clickable" onclick="detailLunas('${t}')"><td class="text-start">${t}</td><td class="text-center">${byDate[t].j}</td><td class="text-end">${byDate[t].rp.toLocaleString("id-ID")}</td></tr>`; });
+  
+  view.innerHTML = h + `</tbody></table></div>`;
+}
+
+function openGlobal() {
+  currentPetugas = "Semua"; pushView(renderPetugas);
+  const lunas = allData.filter(r => getStatusLunas(r).isLunas);
+  const belum = allData.filter(r => !getStatusLunas(r).isLunas);
+  const byDate = {};
+  lunas.forEach(r => { 
+    let t = getStatusLunas(r).tgl;
+    byDate[t] = byDate[t] || {j: 0, rp: 0}; 
+    byDate[t].j++; byDate[t].rp += parseIDR(r.jumlah); 
+  });
+  let h = `<h6 class="text-primary fw-bold">Semua Petugas</h6><div class="table-responsive"><table class="table table-sm table-bordered table-striped"><thead class="table-success text-center"><tr><th class="text-start">Tanggal Lunas</th><th class="text-center">Plg</th><th class="text-end">Total Rp</th></tr></thead><tbody>`;
+  if (belum.length > 0) h += `<tr class="clickable" onclick="detailBelum()"><td class="text-start">BELUM LUNAS</td><td class="text-center">${belum.length}</td><td class="text-end">${belum.reduce((a,b)=>a+parseIDR(b.jumlah),0).toLocaleString("id-ID")}</td></tr>`;
+  
+  Object.keys(byDate).sort((a,b) => parseTgl(a) - parseTgl(b)).forEach(t => { h += `<tr class="clickable" onclick="detailGlobalLunas('${t}')"><td class="text-start">${t}</td><td class="text-center">${byDate[t].j}</td><td class="text-end">${byDate[t].rp.toLocaleString("id-ID")}</td></tr>`; });
+  
+  view.innerHTML = h + `</tbody></table></div>`;
+}
+
+function detailLunas(t) { currentTitle = `Lunas_${t}`; currentDetail = allData.filter(r => r.kode === currentPetugas && getStatusLunas(r).isLunas && getStatusLunas(r).tgl === t); pushView(()=>openPetugas(currentPetugas)); renderDetail(); }
+function detailBelum() { currentTitle = "Belum_Lunas"; const p = currentPetugas; currentDetail = allData.filter(r => (p === "Semua" ? true : r.kode === p) && !getStatusLunas(r).isLunas); pushView(()=>(p==="Semua"?openGlobal():openPetugas(p))); renderDetail(); }
+function detailGlobalLunas(t) { currentTitle = `Global_Lunas_${t}`; currentDetail = allData.filter(r => getStatusLunas(r).isLunas && getStatusLunas(r).tgl === t); pushView(openGlobal); renderDetail(); }
+
+function renderDetail() {
+  sortState = { key: null, asc: true };
+  view.innerHTML = `<h6 class="text-center fw-bold small text-uppercase">${currentTitle.replace(/_/g,' ')}</h6><div class="d-flex mb-2 gap-1"><input id="search" class="form-control form-control-sm" placeholder="Cari..."><button class="btn btn-success btn-sm" onclick="exportExcel()">XLSX</button></div><div id="tableArea"></div>`;
+  document.getElementById("search").oninput = e => {
+    const t = e.target.value.toLowerCase();
+    drawTable(currentDetail.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(t))));
+  };
+  drawTable(currentDetail);
+}
+
+function drawTable(data) {
+  window.triggerSort = (key) => {
+    if (sortState.key === key) sortState.asc = !sortState.asc; else { sortState.key = key; sortState.asc = true; }
+    const sorted = [...data].sort((a, b) => {
+      let v1 = a[key] || "", v2 = b[key] || "";
+      if (key === 'jumlah') return sortState.asc ? parseIDR(v1) - parseIDR(v2) : parseIDR(v2) - parseIDR(v1);
+      return sortState.asc ? String(v1).localeCompare(String(v2), undefined, {numeric: true}) : String(v2).localeCompare(String(v1), undefined, {numeric: true});
+    });
+    drawTable(sorted);
+  };
+  const icon = (k) => sortState.key === k ? (sortState.asc ? ' ▲' : ' ▼') : '';
+  let h = `<div class="table-responsive"><table class="table table-sm table-bordered table-striped" style="font-size:0.7rem"><thead class="table-primary text-nowrap"><tr><th class="clickable text-start" onclick="triggerSort('idpel')">IDPEL${icon('idpel')}</th><th class="clickable text-start" onclick="triggerSort('nama')">Nama${icon('nama')}</th><th class="clickable text-center" onclick="triggerSort('koked')">Koked${icon('koked')}</th><th class="clickable text-end" onclick="triggerSort('jumlah')">Rp${icon('jumlah')}</th></tr></thead><tbody>`;
+  data.forEach(r => { h += `<tr class="clickable" onclick="showCardsByData('${r.idpel}')"><td class="text-start">${r.idpel}</td><td class="text-start">${r.nama}</td><td class="text-center">${r.koked}</td><td class="text-end">${parseIDR(r.jumlah).toLocaleString("id-ID")}</td></tr>`; });
+  document.getElementById("tableArea").innerHTML = h + `</tbody></table></div>`;
+}
+
+function showCardsByData(id) {
+  pushView(renderDetail);
+  let h = "";
+  currentDetail.forEach(r => {
+    h += `<div class="card mb-2 ${r.idpel === id?'highlight':''}" id="card-${r.idpel}"><div class="card-body p-2">
+      <div class="d-flex justify-content-between"><b>${r.nama}</b> <span class="badge bg-light text-dark">${r.koked}</span></div>
+      <p class="text-muted mb-1">${r.idpel} | ${r.tarif}/${r.daya} | ${r.alamat || '-'}</p>
+      <div class="d-flex justify-content-between align-items-center">
+        <b class="text-danger">Rp ${parseIDR(r.jumlah).toLocaleString("id-ID")}</b>
+        <div class="d-flex gap-1">
+          <a class="btn btn-success btn-sm" target="_blank" href="https://wa.me/?text=${getFullText(r, 'WA')}">📤 WA</a>
+          <button class="btn btn-danger btn-sm" onclick='createPDF(${JSON.stringify(r).replace(/'/g, "&#39;")})'>📄 PDF</button>
+          <button class="btn btn-warning btn-sm text-dark fw-bold" onclick='createImage(${JSON.stringify(r).replace(/'/g, "&#39;")})'>🖼️ Gambar</button>
+        </div>
+      </div>
+    </div></div>`;
+  });
+  view.innerHTML = h;
+  if(id) setTimeout(() => document.getElementById(`card-${id}`).scrollIntoView({behavior:'smooth', block:'center'}), 100);
+}
+
+const getFullText = (r, type) => {
+  const date = new Date();
+  const nBulanFull = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
+  const nBulanShort = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOP", "DES"];
+  const blnIniFull = nBulanFull[date.getMonth()];
+  const blnIni = `${nBulanShort[date.getMonth()]}-${date.getFullYear()}`;
+  const blnLalu = date.getMonth() === 0 ? `DES-${date.getFullYear()-1}` : `${nBulanShort[date.getMonth()-1]}-${date.getFullYear()}`;
+  
+  if (currentSheet === 'invoice') {
+    if (type === 'WA') {
+      return encodeURIComponent("*PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY*
+*UP3 KLATEN*
+*ULP TULUNG*
+
+*PEMBERITAHUAN TAGIHAN LISTRIK*
+==========================================
+Pelanggan setia PLN,
+*Nama* : " + r.nama + "
+*GarduTiang* : " + (r.gardu || '-') + "
+*Idpel* : " + r.idpel + "
+*Koked* : " + r.koked + "
+*Alamat* : " + (r.alamat || '-') + "
+*Tarif / Daya* : " + r.tarif + " / " + r.daya + "
+*No. Kwh* : " + (r.no_kwh || '-') + "
+
+Bersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan *" + blnIniFull + " " + date.getFullYear() + "* adalah *" + parseIDR(r.jumlah).toLocaleString("id-ID") + "*.
+
+Agar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi.
+Batas akhir pembayaran tagihan listrik adalah tanggal 20 setiap bulannya & hari libur transaksi masih bisa dilakukan pada Loket-loket PPOB online.
+
+Apabila sampai dengan batas waktu yang ditentukan, tanggal 20 belum lunas, maka akan dilakukan pemutusan aliran listrik.
+Demikian atas perhatian dan kerjasamanya diucapkan terimakasih.
+
+Tulung, " + date.getDate() + " " + blnIniFull + " " + date.getFullYear() + "
+
+*BAYARLAH LISTRIK TANGGAL 1-15 SETIAP BULANNYA*
+*PASTI NYAMAN SEMUA SENANG*
+
+*MARTONO AJI PRABOWO*
+
+_ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN_");
+    }
+    return { tgl: `${date.getDate()} ${blnIniFull} ${date.getFullYear()}`, blnIniFull };
+  } else {
+    let periode = (currentSheet === 'lembar1') ? `${blnIni} s/d ${blnIni} (1 LEMBAR)` : `${blnLalu} s/d ${blnIni} (2 LEMBAR)`;
+    const body1 = "Dengan ini diberitahukan dengan hormat bahwa pada hari ini aliran listrik di rumah/alamat seperti tersebut diatas terpaksa diputus untuk sementara karena rekening listrik belum dilunasi pada waktu yang telah ditetapkan.";
+    const body2 = "Penyambungan kembali akan dilakukan pada setiap hari jam kerja apabila rekening serta biaya keterlambatan dilunasi di tempat penerimaan pembayaran rekening listrik, kantor pos, atau bank yang ditunjuk oleh PLN.";
+    const body3 = "Apabila dalam jangka waktu 60 hari terhitung sejak dilakukan pemutusan sementara tunggakan belum dilunasi, maka instalasi milik PLN akan dibongkar, dan penyambungan kembali dapat dilaksanakan setelah Saudara menyelesaikan Biaya Penyambungan yang diperlakukan sebagai sambungan baru serta tetap diwajibkan membayar tagihan listrik yang belum dilunasi beserta dendanya.";
+    if (type === 'WA') {
+      return encodeURIComponent("*PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY*
+*UP3 KLATEN*
+*ULP TULUNG*
+
+*PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK*
+==========================================
+*Kepada Yth.*
+*Nama* : " + r.nama + "
+*ID. Pelanggan* : " + r.idpel + "
+*Alamat* : " + (r.alamat || '-') + "
+*Tarip / Daya* : " + r.tarif + " / " + r.daya + "
+*Koked* : " + r.koked + "
+
+*Rekening* : " + periode + "
+*Rp.* : " + parseIDR(r.rptag).toLocaleString("id-ID") + "
+*Jumlah Biaya Keterlambatan s.d bulan : " + blnIni + "*
+*Rp.* : " + parseIDR(r.rpbk).toLocaleString("id-ID") + "
+
+*Jumlah Tunggakan (belum termasuk biaya Administrasi)*
+*Rp.* : *" + parseIDR(r.jumlah).toLocaleString("id-ID") + "*
+
+" + body1 + "
+
+" + body2 + "
+
+" + body3 + "
+
+*UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS*
+
+TULUNG, " + date.getDate() + " " + nBulanFull[date.getMonth()] + " " + date.getFullYear() + "
+*MANAGER*
+*MARTONO AJI PRABOWO*
+
+_ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN_");
+    }
+    return { periode, blnIni, body1, body2, body3, tgl: `${date.getDate()} ${nBulanFull[date.getMonth()]} ${date.getFullYear()}` };
+  }
+};
+
+function createPDF(r) {
+  const doc = new jsPDF();
+  const info = getFullText(r, 'PDF');
+  let currentPetugasName = r.petugas || r.nama_petugas || r.kode || '-';
+  if (currentSheet === 'invoice') {
+    doc.setFontSize(9); doc.text("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 15, 15);
+    doc.text(`Petugas : ${currentPetugasName}`, 150, 15); doc.text("UP3 KLATEN", 15, 19); doc.text("ULP TULUNG", 15, 23);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.text("PEMBERITAHUAN TAGIHAN LISTRIK", 105, 33, {align: "center"});
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.text("Pelanggan setia PLN,", 15, 45);
+    doc.text(`Nama             : ${r.nama}`, 15, 52); doc.text(`GarduTiang : ${r.gardu || '-'}`, 120, 52);
+    doc.text(`Idpel              : ${r.idpel}`, 15, 57); doc.text(`Koked          : ${r.koked}`, 120, 57);
+    doc.text(`Alamat           : ${r.alamat || '-'}`, 15, 62); doc.text(`Tarif / Daya   : ${r.tarif} / ${r.daya}`, 15, 67); doc.text(`No. Kwh       : ${r.no_kwh || '-'}`, 120, 67);
+    let txt = `Bersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan ${info.blnIniFull} 2026 adalah ${parseIDR(r.jumlah).toLocaleString("id-ID")}. Agar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi.`;
+    doc.text(doc.splitTextToSize(txt, 180), 15, 80);
+    doc.text("Batas akhir pembayaran tagihan listrik adalah tanggal 20 setiap bulannya & hari libur transaksi masih bisa dilakukan pada Loket-loket PPOB online. Apabila sampai dengan batas waktu yang ditentukan, tanggal 20 belum lunas, maka akan dilakukan pemutusan aliran listrik.", 15, 95, {maxWidth: 180});
+    doc.text("Demikian atas perhatian dan kerjasamanya diucapkan terimakasih.", 15, 115);
+    doc.text(`Tulung, ${info.tgl}`, 145, 125); doc.setFont(undefined, 'bold');
+    doc.text("BAYARLAH LISTRIK TANGGAL 1-15 SETIAP BULANNYA", 15, 135); doc.text("PASTI NYAMAN SEMUA SENANG", 15, 140);
+    doc.text("MARTONO AJI PRABOWO", 145, 150); doc.setFontSize(8); doc.setFont(undefined, 'italic');
+    doc.text("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 15, 160);
+  } else {
+    doc.setFontSize(8); doc.text("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 15, 15);
+    doc.text("UP3 KLATEN", 15, 19); doc.text("ULP TULUNG", 15, 23); doc.text("NO. TUL :", 150, 19);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.text("PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK", 105, 33, {align: "center"});
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.text("===================================================================================", 105, 36, {align: "center"});
+    doc.text("Kepada Yth.", 15, 45); doc.text(`Nama             : ${r.nama}`, 15, 50); doc.text(`ID. Pelanggan    : ${r.idpel}`, 15, 55);
+    doc.text(`Alamat           : ${r.alamat || '-'}`, 15, 60); doc.text(`Tarip / Daya     : ${r.tarif} / ${r.daya}`, 15, 65); doc.text(`Koked : ${r.koked}`, 120, 55);
+    doc.text(`Rekening : ${info.periode}`, 15, 80); doc.text(`Rp. :`, 150, 80); doc.text(parseIDR(r.rptag).toLocaleString("id-ID"), 190, 80, {align: "right"});
+    doc.text(`Jumlah Biaya Keterlambatan s.d bulan : ${info.blnIni}`, 15, 85); doc.text(`Rp. :`, 150, 85); doc.text(parseIDR(r.rpbk).toLocaleString("id-ID"), 190, 85, {align: "right"});
+    doc.setFont(undefined, 'bold'); doc.text(`Jumlah Tunggakan (belum termasuk biaya Administrasi)`, 15, 92);
+    doc.text(`Rp. :`, 150, 92); doc.text(parseIDR(r.jumlah).toLocaleString("id-ID"), 190, 92, {align: "right"});
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8.5);
+    doc.text(doc.splitTextToSize(info.body1, 180), 15, 102); doc.text(doc.splitTextToSize(info.body2, 180), 15, 114);
+    doc.text(doc.splitTextToSize(info.body3, 180), 15, 130); doc.setFont(undefined, 'bold');
+    doc.text("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 15, 150);
+    doc.text(`TULUNG, ${info.tgl}`, 145, 160); doc.text("MANAGER", 155, 165); doc.text("MARTONO AJI PRABOWO", 145, 190);
+    doc.setFontSize(7); doc.setFont(undefined, 'normal'); doc.text("A5 TUL VI-01/PETUGAS PEMUTUS : ..................................", 15, 210);
+  }
+  doc.save(`${currentSheet === 'invoice' ? 'Tagihan' : 'TUL'}_${r.idpel}.pdf`);
+}
+
+function exportExcel() {
+  const ws = XLSX.utils.json_to_sheet(currentDetail), wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Data");
+  XLSX.writeFile(wb, `Rekap_${currentTitle}.xlsx`);
+}
+
+function createImage(r) {
+  const canvas = document.createElement('canvas');
+  const scale = 3; 
+  const w = 816;
+  const h = 528;
+  canvas.width = w * scale;
+  canvas.height = h * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.fillStyle = '#000000';
+  ctx.font = '11px "Courier New", Courier, monospace';
+  ctx.textBaseline = 'top';
+
+  const write = (text, x, y, fontStr) => {
+    if (fontStr) ctx.font = fontStr;
+    ctx.fillText(text, x, y);
+    if (fontStr) ctx.font = '11px "Courier New", Courier, monospace';
+  };
+
+  write("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 30, 25);
+  write("UP3 KLATEN", 30, 38);
+  write("ULP TULUNG", 30, 51);
+  write("NO. TUL :", 500, 38);
+
+  ctx.textAlign = 'center';
+  write("PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK", w/2, 75, 'bold 11px "Courier New", Courier, monospace');
+  write("========================================================================", w/2, 85);
+  ctx.textAlign = 'left';
+
+  write("Kepada Yth.", 30, 110);
+  const labels = ["Nama", "ID. Pelanggan", "Alamat", "Nomor Meter", "Nama Gardu/Tiang", "Tarip / Daya"];
+  const values = [r.nama, r.idpel, r.alamat, r.no_kwh, r.gardu, (r.tarif || '-') + " / " + (r.daya || '-')];
+  
+  for(let i=0; i<labels.length; i++) {
+      let yPos = 125 + (i * 14);
+      write(labels[i], 30, yPos);
+      write(":", 150, yPos);
+      write(values[i] || '-', 160, yPos);
+  }
+
+  write("Kode Kedudukan", 450, 139); write(":", 550, 139); write(r.koked || '-', 560, 139);
+  write("Loket", 450, 181); write(":", 550, 181); write(r.loket || '-', 560, 181);
+  write("Kelompok", 450, 195); write(":", 550, 195); write(r.kelompok || '-', 560, 195);
+
+  const date = new Date();
+  const nBulanShort = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOP", "DES"];
+  const blnIni = `${nBulanShort[date.getMonth()]}-${date.getFullYear()}`;
+  const blnLalu = date.getMonth() === 0 ? `DES-${date.getFullYear()-1}` : `${nBulanShort[date.getMonth()-1]}-${date.getFullYear()}`;
+  let periode = (currentSheet === 'lembar1') ? `${blnIni} s/d ${blnIni} (1 LEMBAR)` : `${blnLalu} s/d ${blnIni} (2 LEMBAR)`;
+  
+  write("Rekening : " + periode, 30, 225);
+  write("Jumlah Biaya Keterlambatan s.d bulan : " + blnIni, 30, 240);
+  write("Jumlah Tunggakan (belum termasuk biaya Administrasi)", 30, 265);
+
+  write("Rp. :", 450, 225);
+  write("Rp. :", 450, 240);
+  write("----------------------", 450, 250);
+  write("Rp. :", 450, 265);
+
+  ctx.textAlign = 'right';
+  write(parseIDR(r.rptag).toLocaleString("id-ID"), 640, 225);
+  write(parseIDR(r.rpbk).toLocaleString("id-ID"), 640, 240);
+  write(parseIDR(r.jumlah).toLocaleString("id-ID"), 640, 265);
+  ctx.textAlign = 'left';
+
+  const wrapText = (text, x, y, maxWidth, lineHeight) => {
+    const words = text.split(' ');
+    let line = '';
+    for(let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && n > 0) {
+            ctx.fillText(line, x, y);
+            line = words[n] + ' ';
+            y += lineHeight;
+        } else {
+            line = testLine;
+        }
+    }
+    ctx.fillText(line, x, y);
+    return y + lineHeight;
+  };
+
+  let yText = 295;
+  let p1 = "     Dengan ini diberitahukan dengan hormat bahwa pada hari ini aliran listrik di rumah/alamat seperti tersebut diatas terpaksa diputus untuk sementara karena rekening listrik belum dilunasi pada waktu yang telah ditetapkan.";
+  let p2 = "     Penyambungan kembali akan dilakukan pada setiap hari jam kerja apabila rekening serta biaya keterlambatan dilunasi di tempat penerimaan pembayaran rekening listrik, kantor pos, atau bank yang ditunjuk oleh PLN.";
+  let p3 = "     Apabila dalam jangka waktu 60 hari terhitung sejak dilakukan pemutusan sementara tunggakan belum dilunasi, maka instalasi milik PLN akan dibongkar, dan penyambungan kembali dapat dilaksanakan setelah Saudara menyelesaikan Biaya Penyambungan yang diperlakukan sebagai sambungan baru serta tetap diwajibkan membayar tagihan listrik yang belum dilunasi beserta dendanya.";
+  
+  yText = wrapText(p1, 30, yText, 756, 14);
+  yText = wrapText(p2, 30, yText, 756, 14);
+  yText = wrapText(p3, 30, yText, 756, 14);
+
+  yText += 15;
+  write("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 30, yText, 'bold 11px "Courier New", Courier, monospace');
+  
+  yText += 30;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeRect(60, yText, 380, 50);
+  ctx.setLineDash([]);
+  
+  ctx.textAlign = 'center';
+  write("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 250, yText + 12);
+  write("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 250, yText + 28);
+  
+  write("TGL. STAND PUTUS PELANGGAN", 250, yText + 70);
+  ctx.textAlign = 'left';
+
+  write("A5 TUL VI-01/PETUGAS PEMUTUS....................................", 30, 495);
+  write("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 30, 508);
+
+  const link = document.createElement('a');
+  link.download = `Tunggakan_${r.idpel}.jpg`;
+  link.href = canvas.toDataURL('image/jpeg', 1.0);
+  link.click();
+}
+
+loadSheet("lembar1");
+</script>
+</body>
+</html>
