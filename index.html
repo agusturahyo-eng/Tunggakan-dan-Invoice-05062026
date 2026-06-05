@@ -500,19 +500,35 @@ const getFullText = (r, type) => {
   const blnIni = `${nBulanShort[date.getMonth()]}-${date.getFullYear()}`;
   const blnLalu = date.getMonth() === 0 ? `DES-${date.getFullYear()-1}` : `${nBulanShort[date.getMonth()-1]}-${date.getFullYear()}`;
   
+  // Calculate the month two months ago for the 3-month sheet.
+  // This correctly accounts for year-end rollbacks.
+  const bln3LaluDate = new Date(date.getFullYear(), date.getMonth() - 2, 1);
+  const bln3LaluMonthShort = nBulanShort[bln3LaluDate.getMonth()];
+  const bln3LaluYear = bln3LaluDate.getFullYear();
+  const bln3LaluStr = `${bln3LaluMonthShort}-${bln3LaluYear}`;
+  
   if (currentSheet === 'invoice') {
     if (type === 'WA') {
       return encodeURIComponent("*PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY*\n*UP3 KLATEN*\n*ULP TULUNG*\n\n*PEMBERITAHUAN TAGIHAN LISTRIK*\n==========================================\nPelanggan setia PLN,\n*Nama* : " + r.nama + "\n*GarduTiang* : " + (r.gardu || '-') + "\n*Idpel* : " + r.idpel + "\n*Koked* : " + r.koked + "\n*Alamat* : " + (r.alamat || '-') + "\n*Tarif / Daya* : " + r.tarif + " / " + r.daya + "\n*No. Kwh* : " + (r.no_kwh || '-') + "\n\nBersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan *" + blnIniFull + " " + date.getFullYear() + "* adalah *" + parseIDR(r.jumlah).toLocaleString("id-ID") + "*.\n\nAgar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi.\nBatas akhir pembayaran tagihan listrik adalah tanggal 20 setiap bulannya & hari libur transaksi masih bisa dilakukan pada Loket-loket PPOB online.\n\nApabila sampai dengan batas waktu yang ditentukan, tanggal 20 belum lunas, maka akan dilakukan pemutusan aliran listrik.\nDemikian atas perhatian dan kerjasamanya diucapkan terimakasih.\n\nTulung, " + date.getDate() + " " + blnIniFull + " " + date.getFullYear() + "\n\n*BAYARLAH LISTRIK TANGGAL 1-15 SETIAP BULANNYA*\n*PASTI NYAMAN SEMUA SENANG*\n\n*MARTONO AJI PRABOWO*\n\n_ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN_");
     }
     return { tgl: `${date.getDate()} ${blnIniFull} ${date.getFullYear()}`, blnIniFull };
   } else {
-    const blnLalu2 = date.getMonth() <= 1 ? `${nBulanShort[date.getMonth()+10]}-${date.getFullYear()-1}` : `${nBulanShort[date.getMonth()-2]}-${date.getFullYear()}`;
-    let periode = (currentSheet === 'lembar1') ? `${blnIni} s/d ${blnIni} (1 LEMBAR)` : 
-                  (currentSheet === 'lembar3') ? `${blnLalu2} s/d ${blnIni} (3 LEMBAR)` : 
-                  `${blnLalu} s/d ${blnIni} (2 LEMBAR)`;;
+    // New logic to handle lembar1 (1 month), lembar3 (3 months), and default (lembar2, 2 months).
+    let periode;
+    if (currentSheet === 'lembar1') {
+      periode = `${blnIni} s/d ${blnIni} (1 LEMBAR)`;
+    } else if (currentSheet === 'lembar3') {
+      // If blnIni is JUN-2026, bln3LaluStr will be APR-2026. This meets your "dari april sampai juni" requirement.
+      periode = `${bln3LaluStr} s/d ${blnIni} (3 LEMBAR)`;
+    } else {
+      // Default case for 'lembar2'
+      periode = `${blnLalu} s/d ${blnIni} (2 LEMBAR)`;
+    }
+
     const body1 = "Dengan ini diberitahukan dengan hormat bahwa pada hari ini aliran listrik di rumah/alamat seperti tersebut diatas terpaksa diputus untuk sementara karena rekening listrik belum dilunasi pada waktu yang telah ditetapkan.";
     const body2 = "Penyambungan kembali akan dilakukan pada setiap hari jam kerja apabila rekening serta biaya keterlambatan dilunasi di tempat penerimaan pembayaran rekening listrik, kantor pos, atau bank yang ditunjuk oleh PLN.";
-    const body3 = "Apabila dalam jangka waktu 60 hari terhitung sejak dilakukan pemutusan sementara tunggakan belum dilunasi, maka instalasi milik PLN akan dibongkar, dan penyambungan kembali dapat dilaksanakan setelah Saudara menyelesaikan Biaya Penyambungan yang diperlakukan sebagai sambungan baru serta tetap diwajibkan membayar tagihan listrik yang belum dilunasi beserta dendanya.";
+    const body3 = "Apabila dalam jangka waktu 60 hari terhitung sejak dilakukan pemutusan sementara tunggakan belum dilunasi, maka instalasi milik PLN akan dibongkar, and penyambungan kembali dapat dilaksanakan setelah Saudara menyelesaikan Biaya Penyambungan yang diperlakukan sebagai sambungan baru serta tetap diwajibkan membayar tagihan listrik yang belum dilunasi beserta dendanya.";
+    
     if (type === 'WA') {
       return encodeURIComponent("*PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY*\n*UP3 KLATEN*\n*ULP TULUNG*\n\n*PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK*\n==========================================\n*Kepada Yth.*\n*Nama* : " + r.nama + "\n*ID. Pelanggan* : " + r.idpel + "\n*Alamat* : " + (r.alamat || '-') + "\n*Tarip / Daya* : " + r.tarif + " / " + r.daya + "\n*Koked* : " + r.koked + "\n\n*Rekening* : " + periode + "\n*Rp.* : " + parseIDR(r.rptag).toLocaleString("id-ID") + "\n*Jumlah Biaya Keterlambatan s.d bulan : " + blnIni + "*\n*Rp.* : " + parseIDR(r.rpbk).toLocaleString("id-ID") + "\n\n*Jumlah Tunggakan (belum termasuk biaya Administrasi)*\n*Rp.* : *" + parseIDR(r.jumlah).toLocaleString("id-ID") + "*\n\n" + body1 + "\n\n" + body2 + "\n\n" + body3 + "\n\n*UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS*\n\nTULUNG, " + date.getDate() + " " + nBulanFull[date.getMonth()] + " " + date.getFullYear() + "\n*MANAGER*\n*MARTONO AJI PRABOWO*\n\n_ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN_");
     }
@@ -671,14 +687,59 @@ function createPDF(r) {
     doc.text("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 15, 160);
     doc.save(`Tagihan_${r.idpel}.pdf`);
   } else {
-    const canvas = generateCanvasTunggakan(r);
-    const imgData = canvas.toDataURL('image/jpeg', 1.0);
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [215.9, 139.7] });
-    doc.addImage(imgData, 'JPEG', 0, 0, 215.9, 139.7);
-    doc.save(`TUL_${r.idpel}.pdf`);
-  }
-}
+    doc.setFontSize(8); doc.text("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 15, 15);
+    doc.text("UP3 KLATEN", 15, 19); doc.text("ULP TULUNG", 15, 23); doc.text("NO. TUL :", 150, 19);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.text("PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK", 105, 33, {align: "center"});
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.text("===================================================================================", 105, 36, {align: "center"});
+    doc.text("Kepada Yth.", 15, 45); doc.text(`Nama             : ${r.nama}`, 15, 50); doc.text(`ID. Pelanggan    : ${r.idpel}`, 15, 55);
+    doc.text(`Alamat           : ${r.alamat || '-'}`, 15, 60); doc.text(`Tarip / Daya     : ${r.tarif} / ${r.daya}`, 15, 65); doc.text(`Koked : ${r.koked}`, 120, 55);
+    doc.text(`Rekening : ${info.periode}`, 15, 80); doc.text(`Rp. :`, 150, 80); doc.text(parseIDR(r.rptag).toLocaleString("id-ID"), 190, 80, {align: "right"});
+    doc.text(`Jumlah Biaya Keterlambatan s.d bulan : ${info.blnIni}`, 15, 85); doc.text(`Rp. :`, 150, 85); doc.text(parseIDR(r.rpbk).toLocaleString("id-ID"), 190, 85, {align: "right"});
+    doc.setFont(undefined, 'bold'); doc.text(`Jumlah Tunggakan (belum termasuk biaya Administrasi)`, 15, 92);
+    doc.text(`Rp. :`, 150, 92); doc.text(parseIDR(r.jumlah).toLocaleString("id-ID"), 190, 92, {align: "right"});
 
+    // Start of dynamic and tight coordinate logic
+    let y_current = 92; // end of Rekening info
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8.5);
+    
+    // Space before paragraph 1
+    y_current += 6; 
+    let body1Text = doc.splitTextToSize(info.body1, 180);
+    doc.text(body1Text, 15, y_current);
+    
+    // Space before paragraph 2. Calculate height and add a very small fixed gap.
+    y_current += (body1Text.length * 3.5) + 3; // text height + tight gap
+    let body2Text = doc.splitTextToSize(info.body2, 180);
+    doc.text(body2Text, 15, y_current);
+    
+    // Space before paragraph 3. Repeat logic.
+    y_current += (body2Text.length * 3.5) + 3; // text height + tight gap
+    let body3Text = doc.splitTextToSize(info.body3, 180);
+    doc.text(body3Text, 15, y_current);
+    
+    // Space before Bold warning text. Transition.
+    y_current += (body3Text.length * 3.5) + 6; // text height + slightly larger gap for warning.
+    doc.setFont(undefined, 'bold');
+    doc.text("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 15, y_current);
+    
+    // Dynamic coordinate logic for boxed message (if you wanted to add it in PDF, this area is suitable)
+    
+    // Very tight spacing for the Manager signature block:
+    // This compresses the entire area.
+    y_current += 8; 
+    doc.text(`TULUNG, ${info.tgl}`, 145, y_current);
+    
+    y_current += 4; // reduced from 5
+    doc.text("MANAGER", 155, y_current);
+    
+    y_current += 16; // greatly reduced from 25
+    doc.text("MARTONO AJI PRABOWO", 145, y_current);
+    
+    // Final bottom text: greatly reduced gap to pull it up.
+    y_current += 10; // reduced from 20
+    doc.setFontSize(7); doc.setFont(undefined, 'normal'); 
+    doc.text("A5 TUL VI-01/PETUGAS PEMUTUS : ..................................", 15, y_current);
+  }
 function exportExcel() {
   const ws = XLSX.utils.json_to_sheet(currentDetail), wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Data");
