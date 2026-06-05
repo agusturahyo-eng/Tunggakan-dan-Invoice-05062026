@@ -740,6 +740,7 @@ function createPDF(r) {
     doc.setFontSize(7); doc.setFont(undefined, 'normal'); 
     doc.text("A5 TUL VI-01/PETUGAS PEMUTUS : ..................................", 15, y_current);
   }
+}
 function exportExcel() {
   const ws = XLSX.utils.json_to_sheet(currentDetail), wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Data");
