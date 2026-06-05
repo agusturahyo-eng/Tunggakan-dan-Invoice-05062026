@@ -471,10 +471,22 @@ function drawTable(data) {
   document.getElementById("tableArea").innerHTML = h + `</tbody></table></div>`;
 }
 
+// === NEW FAST IMPLEMENTATION FOR showCardsByData ===
+window.triggerCreatePDF = (idpel) => {
+  const r = currentDetail.find(x => String(x.idpel) === String(idpel));
+  if (r) createPDF(r);
+};
+
+window.triggerCreateImage = (idpel) => {
+  const r = currentDetail.find(x => String(x.idpel) === String(idpel));
+  if (r) createImage(r);
+};
+
 function showCardsByData(id) {
   pushView(renderDetail);
   let h = "";
   currentDetail.forEach(r => {
+    let btnGambar = currentSheet !== 'invoice' ? `<button class="btn btn-warning btn-sm text-dark fw-bold" onclick="triggerCreateImage('${r.idpel}')">🖼️ Gambar</button>` : '';
     h += `<div class="card mb-2 ${r.idpel === id?'highlight':''}" id="card-${r.idpel}"><div class="card-body p-2">
       <div class="d-flex justify-content-between"><b>${r.nama}</b> <span class="badge bg-light text-dark">${r.koked}</span></div>
       <p class="text-muted mb-1">${r.idpel} | ${r.tarif}/${r.daya} | ${r.alamat || '-'}</p>
@@ -482,8 +494,8 @@ function showCardsByData(id) {
         <b class="text-danger">Rp ${parseIDR(r.jumlah).toLocaleString("id-ID")}</b>
         <div class="d-flex gap-1">
           <a class="btn btn-success btn-sm" target="_blank" href="https://wa.me/?text=${getFullText(r, 'WA')}">📤 WA</a>
-          <button class="btn btn-danger btn-sm" onclick='createPDF(${JSON.stringify(r).replace(/'/g, "&#39;")})'>📄 PDF</button>
-          <button class="btn btn-warning btn-sm text-dark fw-bold" onclick='createImage(${JSON.stringify(r).replace(/'/g, "&#39;")})'>🖼️ Gambar</button>
+          <button class="btn btn-danger btn-sm" onclick="triggerCreatePDF('${r.idpel}')">📄 PDF</button>
+          ${btnGambar}
         </div>
       </div>
     </div></div>`;
@@ -491,6 +503,7 @@ function showCardsByData(id) {
   view.innerHTML = h;
   if(id) setTimeout(() => document.getElementById(`card-${id}`).scrollIntoView({behavior:'smooth', block:'center'}), 100);
 }
+// ===================================================
 
 const getFullText = (r, type) => {
   const date = new Date();
