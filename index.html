@@ -517,54 +517,7 @@ const getFullText = (r, type) => {
   }
 };
 
-function createPDF(r) {
-  const doc = new jsPDF();
-  const info = getFullText(r, 'PDF');
-  let currentPetugasName = r.petugas || r.nama_petugas || r.kode || '-';
-  if (currentSheet === 'invoice') {
-    doc.setFontSize(9); doc.text("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 15, 15);
-    doc.text(`Petugas : ${currentPetugasName}`, 150, 15); doc.text("UP3 KLATEN", 15, 19); doc.text("ULP TULUNG", 15, 23);
-    doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.text("PEMBERITAHUAN TAGIHAN LISTRIK", 105, 33, {align: "center"});
-    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.text("Pelanggan setia PLN,", 15, 45);
-    doc.text(`Nama             : ${r.nama}`, 15, 52); doc.text(`GarduTiang : ${r.gardu || '-'}`, 120, 52);
-    doc.text(`Idpel              : ${r.idpel}`, 15, 57); doc.text(`Koked          : ${r.koked}`, 120, 57);
-    doc.text(`Alamat           : ${r.alamat || '-'}`, 15, 62); doc.text(`Tarif / Daya   : ${r.tarif} / ${r.daya}`, 15, 67); doc.text(`No. Kwh       : ${r.no_kwh || '-'}`, 120, 67);
-    let txt = `Bersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan ${info.blnIniFull} 2026 adalah ${parseIDR(r.jumlah).toLocaleString("id-ID")}. Agar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi.`;
-    doc.text(doc.splitTextToSize(txt, 180), 15, 80);
-    doc.text("Batas akhir pembayaran tagihan listrik adalah tanggal 20 setiap bulannya & hari libur transaksi masih bisa dilakukan pada Loket-loket PPOB online. Apabila sampai dengan batas waktu yang ditentukan, tanggal 20 belum lunas, maka akan dilakukan pemutusan aliran listrik.", 15, 95, {maxWidth: 180});
-    doc.text("Demikian atas perhatian dan kerjasamanya diucapkan terimakasih.", 15, 115);
-    doc.text(`Tulung, ${info.tgl}`, 145, 125); doc.setFont(undefined, 'bold');
-    doc.text("BAYARLAH LISTRIK TANGGAL 1-15 SETIAP BULANNYA", 15, 135); doc.text("PASTI NYAMAN SEMUA SENANG", 15, 140);
-    doc.text("MARTONO AJI PRABOWO", 145, 150); doc.setFontSize(8); doc.setFont(undefined, 'italic');
-    doc.text("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 15, 160);
-  } else {
-    doc.setFontSize(8); doc.text("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 15, 15);
-    doc.text("UP3 KLATEN", 15, 19); doc.text("ULP TULUNG", 15, 23); doc.text("NO. TUL :", 150, 19);
-    doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.text("PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK", 105, 33, {align: "center"});
-    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.text("===================================================================================", 105, 36, {align: "center"});
-    doc.text("Kepada Yth.", 15, 45); doc.text(`Nama             : ${r.nama}`, 15, 50); doc.text(`ID. Pelanggan    : ${r.idpel}`, 15, 55);
-    doc.text(`Alamat           : ${r.alamat || '-'}`, 15, 60); doc.text(`Tarip / Daya     : ${r.tarif} / ${r.daya}`, 15, 65); doc.text(`Koked : ${r.koked}`, 120, 55);
-    doc.text(`Rekening : ${info.periode}`, 15, 80); doc.text(`Rp. :`, 150, 80); doc.text(parseIDR(r.rptag).toLocaleString("id-ID"), 190, 80, {align: "right"});
-    doc.text(`Jumlah Biaya Keterlambatan s.d bulan : ${info.blnIni}`, 15, 85); doc.text(`Rp. :`, 150, 85); doc.text(parseIDR(r.rpbk).toLocaleString("id-ID"), 190, 85, {align: "right"});
-    doc.setFont(undefined, 'bold'); doc.text(`Jumlah Tunggakan (belum termasuk biaya Administrasi)`, 15, 92);
-    doc.text(`Rp. :`, 150, 92); doc.text(parseIDR(r.jumlah).toLocaleString("id-ID"), 190, 92, {align: "right"});
-    doc.setFont(undefined, 'normal'); doc.setFontSize(8.5);
-    doc.text(doc.splitTextToSize(info.body1, 180), 15, 102); doc.text(doc.splitTextToSize(info.body2, 180), 15, 114);
-    doc.text(doc.splitTextToSize(info.body3, 180), 15, 130); doc.setFont(undefined, 'bold');
-    doc.text("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 15, 150);
-    doc.text(`TULUNG, ${info.tgl}`, 145, 160); doc.text("MANAGER", 155, 165); doc.text("MARTONO AJI PRABOWO", 145, 190);
-    doc.setFontSize(7); doc.setFont(undefined, 'normal'); doc.text("A5 TUL VI-01/PETUGAS PEMUTUS : ..................................", 15, 210);
-  }
-  doc.save(`${currentSheet === 'invoice' ? 'Tagihan' : 'TUL'}_${r.idpel}.pdf`);
-}
-
-function exportExcel() {
-  const ws = XLSX.utils.json_to_sheet(currentDetail), wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Data");
-  XLSX.writeFile(wb, `Rekap_${currentTitle}.xlsx`);
-}
-
-function createImage(r) {
+function generateCanvasTunggakan(r) {
   const canvas = document.createElement('canvas');
   const scale = 3; 
   const w = 816;
@@ -578,13 +531,11 @@ function createImage(r) {
   ctx.fillRect(0, 0, w, h);
 
   ctx.fillStyle = '#000000';
-  ctx.font = '11px "Courier New", Courier, monospace';
   ctx.textBaseline = 'top';
 
   const write = (text, x, y, fontStr) => {
-    if (fontStr) ctx.font = fontStr;
+    ctx.font = fontStr ? fontStr : '11px "Courier New", Courier, monospace';
     ctx.fillText(text, x, y);
-    if (fontStr) ctx.font = '11px "Courier New", Courier, monospace';
   };
 
   write("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 30, 25);
@@ -613,6 +564,7 @@ function createImage(r) {
   write("Kelompok", 450, 195); write(":", 550, 195); write(r.kelompok || '-', 560, 195);
 
   const date = new Date();
+  const nBulanFull = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
   const nBulanShort = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOP", "DES"];
   const blnIni = `${nBulanShort[date.getMonth()]}-${date.getFullYear()}`;
   const blnLalu = date.getMonth() === 0 ? `DES-${date.getFullYear()-1}` : `${nBulanShort[date.getMonth()-1]}-${date.getFullYear()}`;
@@ -663,21 +615,69 @@ function createImage(r) {
   yText += 15;
   write("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 30, yText, 'bold 11px "Courier New", Courier, monospace');
   
-  yText += 30;
+  let yBottom = yText + 30;
+  
   ctx.setLineDash([4, 4]);
-  ctx.strokeRect(60, yText, 380, 50);
+  ctx.strokeRect(60, yBottom, 380, 50);
   ctx.setLineDash([]);
   
   ctx.textAlign = 'center';
-  write("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 250, yText + 12);
-  write("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 250, yText + 28);
-  
-  write("TGL. STAND PUTUS PELANGGAN", 250, yText + 70);
+  write("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 250, yBottom + 12);
+  write("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 250, yBottom + 28);
+  write("TGL. STAND PUTUS PELANGGAN", 250, yBottom + 70);
+
+  let tglString = `${date.getDate()} ${nBulanFull[date.getMonth()]} ${date.getFullYear()}`;
+  let sigCenter = 630;
+  write(`TULUNG, ${tglString}`, sigCenter, yBottom, 'bold 11px "Courier New", Courier, monospace');
+  write("MANAGER", sigCenter, yBottom + 15, 'bold 11px "Courier New", Courier, monospace');
+  write("MARTONO AJI PRABOWO", sigCenter, yBottom + 75, 'bold 11px "Courier New", Courier, monospace');
   ctx.textAlign = 'left';
 
-  write("A5 TUL VI-01/PETUGAS PEMUTUS....................................", 30, 495);
-  write("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 30, 508);
+  let yFooter = yBottom + 100;
+  write("A5 TUL VI-01/PETUGAS PEMUTUS....................................", 30, yFooter);
+  write("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 30, yFooter + 15);
 
+  return canvas;
+}
+
+function createPDF(r) {
+  if (currentSheet === 'invoice') {
+    const doc = new jsPDF();
+    const info = getFullText(r, 'PDF');
+    let currentPetugasName = r.petugas || r.nama_petugas || r.kode || '-';
+    doc.setFontSize(9); doc.text("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 15, 15);
+    doc.text(`Petugas : ${currentPetugasName}`, 150, 15); doc.text("UP3 KLATEN", 15, 19); doc.text("ULP TULUNG", 15, 23);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.text("PEMBERITAHUAN TAGIHAN LISTRIK", 105, 33, {align: "center"});
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.text("Pelanggan setia PLN,", 15, 45);
+    doc.text(`Nama             : ${r.nama}`, 15, 52); doc.text(`GarduTiang : ${r.gardu || '-'}`, 120, 52);
+    doc.text(`Idpel              : ${r.idpel}`, 15, 57); doc.text(`Koked          : ${r.koked}`, 120, 57);
+    doc.text(`Alamat           : ${r.alamat || '-'}`, 15, 62); doc.text(`Tarif / Daya   : ${r.tarif} / ${r.daya}`, 15, 67); doc.text(`No. Kwh       : ${r.no_kwh || '-'}`, 120, 67);
+    let txt = `Bersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan ${info.blnIniFull} 2026 adalah ${parseIDR(r.jumlah).toLocaleString("id-ID")}. Agar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi.`;
+    doc.text(doc.splitTextToSize(txt, 180), 15, 80);
+    doc.text("Batas akhir pembayaran tagihan listrik adalah tanggal 20 setiap bulannya & hari libur transaksi masih bisa dilakukan pada Loket-loket PPOB online. Apabila sampai dengan batas waktu yang ditentukan, tanggal 20 belum lunas, maka akan dilakukan pemutusan aliran listrik.", 15, 95, {maxWidth: 180});
+    doc.text("Demikian atas perhatian dan kerjasamanya diucapkan terimakasih.", 15, 115);
+    doc.text(`Tulung, ${info.tgl}`, 145, 125); doc.setFont(undefined, 'bold');
+    doc.text("BAYARLAH LISTRIK TANGGAL 1-15 SETIAP BULANNYA", 15, 135); doc.text("PASTI NYAMAN SEMUA SENANG", 15, 140);
+    doc.text("MARTONO AJI PRABOWO", 145, 150); doc.setFontSize(8); doc.setFont(undefined, 'italic');
+    doc.text("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 15, 160);
+    doc.save(`Tagihan_${r.idpel}.pdf`);
+  } else {
+    const canvas = generateCanvasTunggakan(r);
+    const imgData = canvas.toDataURL('image/jpeg', 1.0);
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [215.9, 139.7] });
+    doc.addImage(imgData, 'JPEG', 0, 0, 215.9, 139.7);
+    doc.save(`TUL_${r.idpel}.pdf`);
+  }
+}
+
+function exportExcel() {
+  const ws = XLSX.utils.json_to_sheet(currentDetail), wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Data");
+  XLSX.writeFile(wb, `Rekap_${currentTitle}.xlsx`);
+}
+
+function createImage(r) {
+  const canvas = generateCanvasTunggakan(r);
   const link = document.createElement('a');
   link.download = `Tunggakan_${r.idpel}.jpg`;
   link.href = canvas.toDataURL('image/jpeg', 1.0);
