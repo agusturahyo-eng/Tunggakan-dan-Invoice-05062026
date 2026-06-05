@@ -506,7 +506,10 @@ const getFullText = (r, type) => {
     }
     return { tgl: `${date.getDate()} ${blnIniFull} ${date.getFullYear()}`, blnIniFull };
   } else {
-    let periode = (currentSheet === 'lembar1') ? `${blnIni} s/d ${blnIni} (1 LEMBAR)` : `${blnLalu} s/d ${blnIni} (2 LEMBAR)`;
+    const blnLalu2 = date.getMonth() <= 1 ? `${nBulanShort[date.getMonth()+10]}-${date.getFullYear()-1}` : `${nBulanShort[date.getMonth()-2]}-${date.getFullYear()}`;
+    let periode = (currentSheet === 'lembar1') ? `${blnIni} s/d ${blnIni} (1 LEMBAR)` : 
+                  (currentSheet === 'lembar3') ? `${blnLalu2} s/d ${blnIni} (3 LEMBAR)` : 
+                  `${blnLalu} s/d ${blnIni} (2 LEMBAR)`;;
     const body1 = "Dengan ini diberitahukan dengan hormat bahwa pada hari ini aliran listrik di rumah/alamat seperti tersebut diatas terpaksa diputus untuk sementara karena rekening listrik belum dilunasi pada waktu yang telah ditetapkan.";
     const body2 = "Penyambungan kembali akan dilakukan pada setiap hari jam kerja apabila rekening serta biaya keterlambatan dilunasi di tempat penerimaan pembayaran rekening listrik, kantor pos, atau bank yang ditunjuk oleh PLN.";
     const body3 = "Apabila dalam jangka waktu 60 hari terhitung sejak dilakukan pemutusan sementara tunggakan belum dilunasi, maka instalasi milik PLN akan dibongkar, dan penyambungan kembali dapat dilaksanakan setelah Saudara menyelesaikan Biaya Penyambungan yang diperlakukan sebagai sambungan baru serta tetap diwajibkan membayar tagihan listrik yang belum dilunasi beserta dendanya.";
@@ -568,21 +571,25 @@ function generateCanvasTunggakan(r) {
   const nBulanShort = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOP", "DES"];
   const blnIni = `${nBulanShort[date.getMonth()]}-${date.getFullYear()}`;
   const blnLalu = date.getMonth() === 0 ? `DES-${date.getFullYear()-1}` : `${nBulanShort[date.getMonth()-1]}-${date.getFullYear()}`;
-  let periode = (currentSheet === 'lembar1') ? `${blnIni} s/d ${blnIni} (1 LEMBAR)` : `${blnLalu} s/d ${blnIni} (2 LEMBAR)`;
+  const blnLalu2 = date.getMonth() <= 1 ? `${nBulanShort[date.getMonth()+10]}-${date.getFullYear()-1}` : `${nBulanShort[date.getMonth()-2]}-${date.getFullYear()}`;
   
-  write("Rekening : " + periode, 30, 225);
-  write("Jumlah Biaya Keterlambatan s.d bulan : " + blnIni, 30, 240);
-  write("Jumlah Tunggakan (belum termasuk biaya Administrasi)", 30, 265);
+  let periode = (currentSheet === 'lembar1') ? `${blnIni} s/d ${blnIni} (1 LEMBAR)` : 
+                (currentSheet === 'lembar3') ? `${blnLalu2} s/d ${blnIni} (3 LEMBAR)` : 
+                `${blnLalu} s/d ${blnIni} (2 LEMBAR)`;
+  
+  write("Rekening : " + periode, 30, 215);
+  write("Jumlah Biaya Keterlambatan s.d bulan : " + blnIni, 30, 230);
+  write("Jumlah Tunggakan (belum termasuk biaya Administrasi)", 30, 255);
 
-  write("Rp. :", 450, 225);
-  write("Rp. :", 450, 240);
-  write("----------------------", 450, 250);
-  write("Rp. :", 450, 265);
+  write("Rp. :", 450, 215);
+  write("Rp. :", 450, 230);
+  write("----------------------", 450, 240);
+  write("Rp. :", 450, 255);
 
   ctx.textAlign = 'right';
-  write(parseIDR(r.rptag).toLocaleString("id-ID"), 640, 225);
-  write(parseIDR(r.rpbk).toLocaleString("id-ID"), 640, 240);
-  write(parseIDR(r.jumlah).toLocaleString("id-ID"), 640, 265);
+  write(parseIDR(r.rptag).toLocaleString("id-ID"), 640, 215);
+  write(parseIDR(r.rpbk).toLocaleString("id-ID"), 640, 230);
+  write(parseIDR(r.jumlah).toLocaleString("id-ID"), 640, 255);
   ctx.textAlign = 'left';
 
   const wrapText = (text, x, y, maxWidth, lineHeight) => {
@@ -603,37 +610,39 @@ function generateCanvasTunggakan(r) {
     return y + lineHeight;
   };
 
-  let yText = 295;
+  let yText = 275;
   let p1 = "     Dengan ini diberitahukan dengan hormat bahwa pada hari ini aliran listrik di rumah/alamat seperti tersebut diatas terpaksa diputus untuk sementara karena rekening listrik belum dilunasi pada waktu yang telah ditetapkan.";
   let p2 = "     Penyambungan kembali akan dilakukan pada setiap hari jam kerja apabila rekening serta biaya keterlambatan dilunasi di tempat penerimaan pembayaran rekening listrik, kantor pos, atau bank yang ditunjuk oleh PLN.";
   let p3 = "     Apabila dalam jangka waktu 60 hari terhitung sejak dilakukan pemutusan sementara tunggakan belum dilunasi, maka instalasi milik PLN akan dibongkar, dan penyambungan kembali dapat dilaksanakan setelah Saudara menyelesaikan Biaya Penyambungan yang diperlakukan sebagai sambungan baru serta tetap diwajibkan membayar tagihan listrik yang belum dilunasi beserta dendanya.";
   
-  yText = wrapText(p1, 30, yText, 756, 14);
-  yText = wrapText(p2, 30, yText, 756, 14);
-  yText = wrapText(p3, 30, yText, 756, 14);
+  yText = wrapText(p1, 30, yText, 756, 12);
+  yText = wrapText(p2, 30, yText, 756, 12);
+  yText = wrapText(p3, 30, yText, 756, 12);
 
-  yText += 15;
+  yText += 10;
   write("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 30, yText, 'bold 11px "Courier New", Courier, monospace');
   
-  let yBottom = yText + 30;
+  let yBottom = yText + 18;
   
   ctx.setLineDash([4, 4]);
-  ctx.strokeRect(60, yBottom, 380, 50);
+  ctx.strokeRect(60, yBottom, 380, 40);
   ctx.setLineDash([]);
   
   ctx.textAlign = 'center';
-  write("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 250, yBottom + 12);
-  write("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 250, yBottom + 28);
-  write("TGL. STAND PUTUS PELANGGAN", 250, yBottom + 70);
+  write("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 250, yBottom + 8);
+  write("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 250, yBottom + 22);
+  
+  write("TGL. STAND PUTUS PELANGGAN : ....................", 250, yBottom + 50);
+  write("TGL. NYALA KEMBALI         : ....................", 250, yBottom + 65);
 
   let tglString = `${date.getDate()} ${nBulanFull[date.getMonth()]} ${date.getFullYear()}`;
   let sigCenter = 630;
   write(`TULUNG, ${tglString}`, sigCenter, yBottom, 'bold 11px "Courier New", Courier, monospace');
   write("MANAGER", sigCenter, yBottom + 15, 'bold 11px "Courier New", Courier, monospace');
-  write("MARTONO AJI PRABOWO", sigCenter, yBottom + 75, 'bold 11px "Courier New", Courier, monospace');
+  write("MARTONO AJI PRABOWO", sigCenter, yBottom + 60, 'bold 11px "Courier New", Courier, monospace');
   ctx.textAlign = 'left';
 
-  let yFooter = yBottom + 100;
+  let yFooter = yBottom + 85;
   write("A5 TUL VI-01/PETUGAS PEMUTUS....................................", 30, yFooter);
   write("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 30, yFooter + 15);
 
