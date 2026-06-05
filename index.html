@@ -687,52 +687,105 @@ function createPDF(r) {
     doc.text("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 15, 160);
     doc.save(`Tagihan_${r.idpel}.pdf`);
   } else {
-    const doc = new jsPDF();
+    // Format Kertas Custom: 219mm x 139.7mm (21.9cm x 13.97cm)
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [219, 139.7] });
     const info = getFullText(r, 'PDF');
-    doc.setFontSize(8); doc.text("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 15, 15);
-    doc.text("UP3 KLATEN", 15, 19); doc.text("ULP TULUNG", 15, 23); doc.text("NO. TUL :", 150, 19);
-    doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.text("PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK", 105, 33, {align: "center"});
-    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.text("===================================================================================", 105, 36, {align: "center"});
-    doc.text("Kepada Yth.", 15, 45); doc.text(`Nama             : ${r.nama}`, 15, 50); doc.text(`ID. Pelanggan    : ${r.idpel}`, 15, 55);
-    doc.text(`Alamat           : ${r.alamat || '-'}`, 15, 60); doc.text(`Tarip / Daya     : ${r.tarif} / ${r.daya}`, 15, 65); doc.text(`Koked : ${r.koked}`, 120, 55);
-    doc.text(`Rekening : ${info.periode}`, 15, 80); doc.text(`Rp. :`, 150, 80); doc.text(parseIDR(r.rptag).toLocaleString("id-ID"), 190, 80, {align: "right"});
-    doc.text(`Jumlah Biaya Keterlambatan s.d bulan : ${info.blnIni}`, 15, 85); doc.text(`Rp. :`, 150, 85); doc.text(parseIDR(r.rpbk).toLocaleString("id-ID"), 190, 85, {align: "right"});
-    doc.setFont(undefined, 'bold'); doc.text(`Jumlah Tunggakan (belum termasuk biaya Administrasi)`, 15, 92);
-    doc.text(`Rp. :`, 150, 92); doc.text(parseIDR(r.jumlah).toLocaleString("id-ID"), 190, 92, {align: "right"});
+    
+    // Menggunakan font Courier agar identik dengan cetakan struk/dot-matrix
+    doc.setFont("courier", "normal");
+    doc.setFontSize(9); 
 
-    let y_current = 92; 
-    doc.setFont(undefined, 'normal'); doc.setFontSize(8.5);
+    // Header
+    doc.text("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 8, 10);
+    doc.text("UP3 KLATEN", 8, 13.5);
+    doc.text("ULP TULUNG", 8, 17);
+    doc.text("NO. TUL :", 130, 13.5);
+
+    doc.setFont("courier", "bold");
+    doc.text("PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK", 109.5, 23, { align: "center" });
+    doc.text("========================================================================", 109.5, 25, { align: "center" });
+
+    doc.setFont("courier", "normal");
+    doc.text("Kepada Yth.", 8, 32);
+
+    // Kolom Kiri
+    doc.text("Nama             :", 8, 36); doc.text(String(r.nama || '-'), 42, 36);
+    doc.text("ID. Pelanggan    :", 8, 40); doc.text(String(r.idpel || '-'), 42, 40);
+    doc.text("Alamat           :", 8, 44); doc.text(String(r.alamat || '-'), 42, 44);
+    doc.text("Nomor Meter      :", 8, 48); doc.text(String(r.no_kwh || '-'), 42, 48);
+    doc.text("Nama Gardu/Tiang :", 8, 52); doc.text(String(r.gardu || '-'), 42, 52);
+    doc.text("Tarip / Daya     :", 8, 56); doc.text((r.tarif || '-') + " / " + (r.daya || '-'), 42, 56);
+
+    // Kolom Kanan
+    doc.text("Kode Kedudukan :", 120, 40); doc.text(String(r.koked || '-'), 155, 40);
+    doc.text("Loket          :", 120, 52); doc.text(String(r.loket || '-'), 155, 52);
+    doc.text("Kelompok       :", 120, 56); doc.text(String(r.kelompok || '-'), 155, 56);
+
+    // Info Tagihan & Rekening
+    doc.text("Rekening : " + info.periode, 8, 63);
+    doc.text("Jumlah Biaya Keterlambatan s.d bulan : " + info.blnIni, 8, 67);
+    doc.text("Jumlah Tunggakan (belum termasuk biaya Administrasi)", 8, 73);
+
+    doc.text("Rp. :", 120, 63);
+    doc.text("Rp. :", 120, 67);
+    doc.text("------------------------", 120, 70);
+    doc.text("Rp. :", 120, 73);
+
+    doc.text(parseIDR(r.rptag).toLocaleString("id-ID"), 175, 63, { align: "right" });
+    doc.text(parseIDR(r.rpbk).toLocaleString("id-ID"), 175, 67, { align: "right" });
+    doc.text(parseIDR(r.jumlah).toLocaleString("id-ID"), 175, 73, { align: "right" });
+
+    // Body Paragraf
+    let y = 80;
+    const lh = 4; // Jarak antar baris
     
-    y_current += 6; 
-    let body1Text = doc.splitTextToSize(info.body1, 180);
-    doc.text(body1Text, 15, y_current);
+    let body1Text = doc.splitTextToSize("     " + info.body1, 203);
+    doc.text(body1Text, 8, y); y += body1Text.length * lh;
+
+    let body2Text = doc.splitTextToSize("     " + info.body2, 203);
+    doc.text(body2Text, 8, y); y += body2Text.length * lh;
+
+    let body3Text = doc.splitTextToSize("     " + info.body3, 203);
+    doc.text(body3Text, 8, y); y += body3Text.length * lh;
+
+    // Peringatan Bold
+    y += 2;
+    doc.setFont("courier", "bold");
+    doc.text("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 8, y);
+
+    // Area Bawah (Kotak Putus-Putus & Tanda Tangan)
+    let boxY = y + 5;
     
-    y_current += (body1Text.length * 3.5) + 3; 
-    let body2Text = doc.splitTextToSize(info.body2, 180);
-    doc.text(body2Text, 15, y_current);
+    // Render Kotak Putus-putus
+    doc.setLineDash([2, 2], 0);
+    doc.rect(15, boxY, 110, 11); 
+    doc.setLineDash([]); // Kembalikan border ke solid agar elemen lain tidak terpengaruh
     
-    y_current += (body2Text.length * 3.5) + 3; 
-    let body3Text = doc.splitTextToSize(info.body3, 180);
-    doc.text(body3Text, 15, y_current);
-    
-    y_current += (body3Text.length * 3.5) + 6; 
-    doc.setFont(undefined, 'bold');
-    doc.text("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 15, y_current);
-    
-    y_current += 8; 
-    doc.text(`TULUNG, ${info.tgl}`, 145, y_current);
-    
-    y_current += 4; 
-    doc.text("MANAGER", 155, y_current);
-    
-    y_current += 16; 
-    doc.text("MARTONO AJI PRABOWO", 145, y_current);
-    
-    y_current += 10; 
-    doc.setFontSize(7); doc.setFont(undefined, 'normal'); 
-    doc.text("A5 TUL VI-01/PETUGAS PEMUTUS : ..................................", 15, y_current);
-    
-    doc.save(`TUL_${r.idpel}.pdf`); 
+    // Teks dalam kotak
+    doc.setFont("courier", "normal");
+    doc.text("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 70, boxY + 4.5, { align: "center" });
+    doc.text("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 70, boxY + 8.5, { align: "center" });
+
+    // Blok Tanda Tangan Manager
+    let sigX = 170;
+    doc.setFont("courier", "bold");
+    doc.text(`TULUNG, ${info.tgl}`, sigX, boxY + 2, { align: "center" });
+    doc.text("MANAGER", sigX, boxY + 6, { align: "center" });
+    doc.text("MARTONO AJI PRABOWO", sigX, boxY + 21, { align: "center" });
+
+    // Tanggal Stand dan Nyala di Bawah Kotak
+    doc.setFont("courier", "normal");
+    doc.text("TGL. STAND PUTUS PELANGGAN : ....................", 70, boxY + 16, { align: "center" });
+    doc.text("TGL. NYALA KEMBALI         : ....................", 70, boxY + 21, { align: "center" });
+
+    // Footer Surat
+    let footerY = boxY + 28;
+    doc.setFontSize(8);
+    doc.text("A5 TUL VI-01/PETUGAS PEMUTUS....................................", 8, footerY);
+    doc.text("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 8, footerY + 4);
+
+    // Render file PDF-nya
+    doc.save(`Tunggakan_${r.idpel}.pdf`);
   }
 }
 
