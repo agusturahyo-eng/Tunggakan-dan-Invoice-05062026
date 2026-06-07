@@ -746,28 +746,28 @@ function createPDF(r) {
     y += 2;
     doc.text("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 8, y);
 
-    // KUNCI ABSOLUT (Mengikat posisi elemen di bawah agar tidak mungkin keluar dari batas kertas 139.7 mm)
-    let boxY = 114;
+    // KUNCI ABSOLUT OPTIMAL (Menaikkan boxY ke 105 agar memberikan ruang longgar ke bawah dan tidak berhimpitan)
+    let boxY = 105;
     
-    // Render Kotak Putus-putus
+    // Render Kotak Putus-putus (Tinggi dinaikkan sedikit ke 10 agar teks di dalamnya longgar)
     doc.setLineDash([2, 2], 0);
-    doc.rect(15, boxY, 95, 9); 
+    doc.rect(15, boxY, 95, 10); 
     doc.setLineDash([]); 
     
-    doc.text("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 62.5, boxY + 3.5, { align: "center" });
-    doc.text("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 62.5, boxY + 7.5, { align: "center" });
+    doc.text("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 62.5, boxY + 4, { align: "center" });
+    doc.text("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 62.5, boxY + 8, { align: "center" });
 
-    // Tanda Tangan
+    // Tanda Tangan (Sisi Kanan)
     let sigX = 170;
     doc.text(`TULUNG, ${info.tgl}`, sigX, boxY + 2, { align: "center" });
     doc.text("MANAGER", sigX, boxY + 6, { align: "center" });
-    doc.text("MARTONO AJI PRABOWO", sigX, boxY + 18, { align: "center" });
+    doc.text("MARTONO AJI PRABOWO", sigX, boxY + 22, { align: "center" });
 
-    // Tanggal Stand
-    doc.text("TGL. STAND PUTUS PELANGGAN : ....................", 15, boxY + 14);
-    doc.text("TGL. NYALA KEMBALI         : ....................", 15, boxY + 18);
+    // Tanggal Stand (Sisi Kiri - Jeda vertikal dibuat renggang agar tidak menabrak nama manager atau footer)
+    doc.text("TGL. STAND PUTUS PELANGGAN : ....................", 15, boxY + 16);
+    doc.text("TGL. NYALA KEMBALI         : ....................", 15, boxY + 22);
 
-    // Footer Surat Fix di ordinat Y = 135 dan 138 (Batas maksimal kertas adalah 139.7)
+    // Footer Surat (Tetap kokoh di posisi paling bawah kertas tanpa terpotong)
     doc.setFontSize(8);
     doc.text("A5 TUL VI-01/PETUGAS PEMUTUS....................................", 8, 134);
     doc.text("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 8, 137.5);
