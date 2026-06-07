@@ -747,7 +747,7 @@ function createPDF(r) {
     doc.text("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 8, y);
 
     // KUNCI ABSOLUT OPTIMAL (Menaikkan boxY ke 105 agar memberikan ruang longgar ke bawah dan tidak berhimpitan)
-    let boxY = 105;
+    let boxY = Math.max(y + 5, 105);
     
     // Render Kotak Putus-putus (Tinggi dinaikkan sedikit ke 10 agar teks di dalamnya longgar)
     doc.setLineDash([2, 2], 0);
