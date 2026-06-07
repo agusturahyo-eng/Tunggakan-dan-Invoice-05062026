@@ -553,34 +553,31 @@ function generateCanvasTunggakan(r) {
   ctx.textBaseline = 'top';
 
   const write = (text, x, y, fontStr) => {
-    ctx.font = fontStr ? fontStr : '11px "Courier New", Courier, monospace';
+    ctx.font = fontStr ? fontStr : 'bold 12px "Courier New", Courier, monospace';
     ctx.fillText(text, x, y);
   };
 
   write("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 30, 25);
-  write("UP3 KLATEN", 30, 38);
-  write("ULP TULUNG", 30, 51);
-  write("NO. TUL :", 500, 38);
+  write("UP3 KLATEN", 30, 40);
+  write("NO. TUL :", 500, 40);
+  write("ULP TULUNG", 30, 55);
 
   ctx.textAlign = 'center';
-  write("PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK", w/2, 75, 'bold 11px "Courier New", Courier, monospace');
+  write("PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK", w/2, 75);
   write("========================================================================", w/2, 85);
   ctx.textAlign = 'left';
 
-  write("Kepada Yth.", 30, 110);
-  const labels = ["Nama", "ID. Pelanggan", "Alamat", "Nomor Meter", "Nama Gardu/Tiang", "Tarip / Daya"];
-  const values = [r.nama, r.idpel, r.alamat, r.no_kwh, r.gardu, (r.tarif || '-') + " / " + (r.daya || '-')];
-  
-  for(let i=0; i<labels.length; i++) {
-      let yPos = 125 + (i * 14);
-      write(labels[i], 30, yPos);
-      write(":", 150, yPos);
-      write(values[i] || '-', 160, yPos);
-  }
-
-  write("Kode Kedudukan", 450, 139); write(":", 550, 139); write(r.koked || '-', 560, 139);
-  write("Loket", 450, 181); write(":", 550, 181); write(r.loket || '-', 560, 181);
-  write("Kelompok", 450, 195); write(":", 550, 195); write(r.kelompok || '-', 560, 195);
+  let yPos = 110;
+  write("Kepada Yth.", 30, yPos); yPos += 15;
+  write("Nama             : " + (r.nama || '-'), 30, yPos); yPos += 15;
+  write("ID. Pelanggan    : " + (r.idpel || '-'), 30, yPos);
+  write("Kode Kedudukan : " + (r.koked || '-'), 450, yPos); yPos += 15;
+  write("Alamat           : " + (r.alamat || '-'), 30, yPos); yPos += 15;
+  write("Nomor Meter      : " + (r.no_kwh || '-'), 30, yPos); yPos += 15;
+  write("Nama Gardu/Tiang : " + (r.gardu || '-'), 30, yPos);
+  write("Loket          : " + (r.loket || '-'), 450, yPos); yPos += 15;
+  write("Tarip / Daya     : " + (r.tarif || '-') + " / " + (r.daya || '-'), 30, yPos);
+  write("Kelompok       : " + (r.kelompok || '-'), 450, yPos); yPos += 25;
 
   const date = new Date();
   const nBulanFull = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
@@ -593,20 +590,22 @@ function generateCanvasTunggakan(r) {
                 (currentSheet === 'lembar3') ? `${blnLalu2} s/d ${blnIni} (3 LEMBAR)` : 
                 `${blnLalu} s/d ${blnIni} (2 LEMBAR)`;
   
-  write("Rekening : " + periode, 30, 215);
-  write("Jumlah Biaya Keterlambatan s.d bulan : " + blnIni, 30, 230);
-  write("Jumlah Tunggakan (belum termasuk biaya Administrasi)", 30, 255);
+  write("Rekening : " + periode, 30, yPos);
+  write("Rp. :", 480, yPos);
+  ctx.textAlign = 'right'; write(parseIDR(r.rptag).toLocaleString("id-ID"), 640, yPos); ctx.textAlign = 'left';
+  yPos += 15;
 
-  write("Rp. :", 450, 215);
-  write("Rp. :", 450, 230);
-  write("----------------------", 450, 240);
-  write("Rp. :", 450, 255);
+  write("Jumlah Biaya Keterlambatan s.d bulan : " + blnIni, 30, yPos);
+  write("Rp. :", 480, yPos);
+  ctx.textAlign = 'right'; write(parseIDR(r.rpbk).toLocaleString("id-ID"), 640, yPos); ctx.textAlign = 'left';
+  yPos += 15;
 
-  ctx.textAlign = 'right';
-  write(parseIDR(r.rptag).toLocaleString("id-ID"), 640, 215);
-  write(parseIDR(r.rpbk).toLocaleString("id-ID"), 640, 230);
-  write(parseIDR(r.jumlah).toLocaleString("id-ID"), 640, 255);
-  ctx.textAlign = 'left';
+  write("----------------------", 480, yPos); yPos += 12;
+
+  write("Jumlah Tunggakan (belum termasuk biaya Administrasi)", 30, yPos);
+  write("Rp. :", 480, yPos);
+  ctx.textAlign = 'right'; write(parseIDR(r.jumlah).toLocaleString("id-ID"), 640, yPos); ctx.textAlign = 'left';
+  yPos += 25;
 
   const wrapText = (text, x, y, maxWidth, lineHeight) => {
     const words = text.split(' ');
@@ -626,41 +625,42 @@ function generateCanvasTunggakan(r) {
     return y + lineHeight;
   };
 
-  let yText = 275;
-  let p1 = "     Dengan ini diberitahukan dengan hormat bahwa pada hari ini aliran listrik di rumah/alamat seperti tersebut diatas terpaksa diputus untuk sementara karena rekening listrik belum dilunasi pada waktu yang telah ditetapkan.";
-  let p2 = "     Penyambungan kembali akan dilakukan pada setiap hari jam kerja apabila rekening serta biaya keterlambatan dilunasi di tempat penerimaan pembayaran rekening listrik, kantor pos, atau bank yang ditunjuk oleh PLN.";
-  let p3 = "     Apabila dalam jangka waktu 60 hari terhitung sejak dilakukan pemutusan sementara tunggakan belum dilunasi, maka instalasi milik PLN akan dibongkar, dan penyambungan kembali dapat dilaksanakan setelah Saudara menyelesaikan Biaya Penyambungan yang diperlakukan sebagai sambungan baru serta tetap diwajibkan membayar tagihan listrik yang belum dilunasi beserta dendanya.";
-  
-  yText = wrapText(p1, 30, yText, 756, 12);
-  yText = wrapText(p2, 30, yText, 756, 12);
-  yText = wrapText(p3, 30, yText, 756, 12);
+  let p1 = "Dengan ini diberitahukan dengan hormat bahwa pada hari ini aliran listrik di rumah/alamat seperti tersebut diatas terpaksa diputus untuk sementara karena rekening listrik belum dilunasi pada waktu yang telah ditetapkan.";
+  let p2 = "Penyambungan kembali akan dilakukan pada setiap hari jam kerja apabila rekening serta biaya keterlambatan dilunasi di tempat penerimaan pembayaran rekening listrik, kantor pos, atau bank yang ditunjuk oleh PLN.";
+  let p3 = "Apabila dalam jangka waktu 60 hari terhitung sejak dilakukan pemutusan sementara tunggakan belum dilunasi, maka instalasi milik PLN akan dibongkar, dan penyambungan kembali dapat dilaksanakan setelah Saudara menyelesaikan Biaya Penyambungan yang diperlakukan sebagai sambungan baru serta tetap diwajibkan membayar tagihan listrik yang belum dilunasi beserta dendanya.";
 
-  yText += 10;
-  write("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 30, yText, 'bold 11px "Courier New", Courier, monospace');
+  yPos = wrapText("     " + p1, 30, yPos, 756, 15);
+  yPos = wrapText("     " + p2, 30, yPos, 756, 15);
+  yPos = wrapText("     " + p3, 30, yPos, 756, 15);
+
+  yPos += 10;
+  write("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 30, yPos);
   
-  let yBottom = yText + 18;
+  yPos += 20;
+  let boxY = yPos;
   
   ctx.setLineDash([4, 4]);
-  ctx.strokeRect(60, yBottom, 380, 40);
+  ctx.strokeRect(40, boxY, 350, 35);
   ctx.setLineDash([]);
   
   ctx.textAlign = 'center';
-  write("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 250, yBottom + 8);
-  write("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 250, yBottom + 22);
+  write("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 215, boxY + 12);
+  write("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 215, boxY + 24);
   
-  write("TGL. STAND PUTUS PELANGGAN : ....................", 250, yBottom + 50);
-  write("TGL. NYALA KEMBALI         : ....................", 250, yBottom + 65);
-
   let tglString = `${date.getDate()} ${nBulanFull[date.getMonth()]} ${date.getFullYear()}`;
   let sigCenter = 630;
-  write(`TULUNG, ${tglString}`, sigCenter, yBottom, 'bold 11px "Courier New", Courier, monospace');
-  write("MANAGER", sigCenter, yBottom + 15, 'bold 11px "Courier New", Courier, monospace');
-  write("MARTONO AJI PRABOWO", sigCenter, yBottom + 60, 'bold 11px "Courier New", Courier, monospace');
+  write(`TULUNG, ${tglString}`, sigCenter, boxY + 5);
+  write("MANAGER", sigCenter, boxY + 20);
+  write("MARTONO AJI PRABOWO", sigCenter, boxY + 70);
   ctx.textAlign = 'left';
 
-  let yFooter = yBottom + 85;
-  write("A5 TUL VI-01/PETUGAS PEMUTUS....................................", 30, yFooter);
-  write("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 30, yFooter + 15);
+  yPos = boxY + 45;
+  write("TGL. STAND PUTUS PELANGGAN : ....................", 40, yPos); yPos += 15;
+  write("TGL. NYALA KEMBALI         : ....................", 40, yPos); yPos += 25;
+
+  ctx.font = 'bold 10px "Courier New", Courier, monospace';
+  write("A5 TUL VI-01/PETUGAS PEMUTUS....................................", 30, yPos); yPos += 15;
+  write("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 30, yPos);
 
   return canvas;
 }
@@ -687,58 +687,52 @@ function createPDF(r) {
     doc.text("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 15, 160);
     doc.save(`Tagihan_${r.idpel}.pdf`);
   } else {
-    // Format Kertas Custom: 219mm x 139.7mm (21.9cm x 13.97cm)
+    // Format Kertas Custom: 219mm x 139.7mm
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [219, 139.7] });
     const info = getFullText(r, 'PDF');
     
-    // Menggunakan font Courier agar identik dengan cetakan struk/dot-matrix
-    doc.setFont("courier", "normal");
-    doc.setFontSize(9); 
+    // Gunakan font bold agar teks menjadi hitam pekat (sesuai request)
+    doc.setFont("courier", "bold");
+    doc.setFontSize(8.5); 
 
     // Header
-    doc.text("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 8, 10);
-    doc.text("UP3 KLATEN", 8, 13.5);
-    doc.text("ULP TULUNG", 8, 17);
-    doc.text("NO. TUL :", 130, 13.5);
+    doc.text("PT. PLN (PERSERO) UID JAWA TENGAH DAN DIY", 8, 8);
+    doc.text("UP3 KLATEN", 8, 12);
+    doc.text("NO. TUL :", 120, 12);
+    doc.text("ULP TULUNG", 8, 16);
 
-    doc.setFont("courier", "bold");
-    doc.text("PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK", 109.5, 23, { align: "center" });
-    doc.text("========================================================================", 109.5, 25, { align: "center" });
+    doc.text("PEMBERITAHUAN PELAKSANAAN PEMUTUSAN SEMENTARA SAMBUNGAN TENAGA LISTRIK", 109.5, 21, { align: "center" });
+    doc.text("========================================================================", 109.5, 23, { align: "center" });
 
-    doc.setFont("courier", "normal");
-    doc.text("Kepada Yth.", 8, 32);
-
-    // Kolom Kiri
-    doc.text("Nama             :", 8, 36); doc.text(String(r.nama || '-'), 42, 36);
-    doc.text("ID. Pelanggan    :", 8, 40); doc.text(String(r.idpel || '-'), 42, 40);
-    doc.text("Alamat           :", 8, 44); doc.text(String(r.alamat || '-'), 42, 44);
-    doc.text("Nomor Meter      :", 8, 48); doc.text(String(r.no_kwh || '-'), 42, 48);
-    doc.text("Nama Gardu/Tiang :", 8, 52); doc.text(String(r.gardu || '-'), 42, 52);
-    doc.text("Tarip / Daya     :", 8, 56); doc.text((r.tarif || '-') + " / " + (r.daya || '-'), 42, 56);
-
-    // Kolom Kanan
-    doc.text("Kode Kedudukan :", 120, 40); doc.text(String(r.koked || '-'), 155, 40);
-    doc.text("Loket          :", 120, 52); doc.text(String(r.loket || '-'), 155, 52);
-    doc.text("Kelompok       :", 120, 56); doc.text(String(r.kelompok || '-'), 155, 56);
+    let y = 28;
+    doc.text("Kepada Yth.", 8, y); y += 4;
+    doc.text("Nama             : " + String(r.nama || '-'), 8, y); y += 4;
+    doc.text("ID. Pelanggan    : " + String(r.idpel || '-'), 8, y);
+    doc.text("Kode Kedudukan : " + String(r.koked || '-'), 120, y); y += 4;
+    doc.text("Alamat           : " + String(r.alamat || '-'), 8, y); y += 4;
+    doc.text("Nomor Meter      : " + String(r.no_kwh || '-'), 8, y); y += 4;
+    doc.text("Nama Gardu/Tiang : " + String(r.gardu || '-'), 8, y);
+    doc.text("Loket          : " + String(r.loket || '-'), 120, y); y += 4;
+    doc.text("Tarip / Daya     : " + (r.tarif || '-') + " / " + (r.daya || '-'), 8, y);
+    doc.text("Kelompok       : " + String(r.kelompok || '-'), 120, y); y += 6;
 
     // Info Tagihan & Rekening
-    doc.text("Rekening : " + info.periode, 8, 63);
-    doc.text("Jumlah Biaya Keterlambatan s.d bulan : " + info.blnIni, 8, 67);
-    doc.text("Jumlah Tunggakan (belum termasuk biaya Administrasi)", 8, 73);
+    doc.text("Rekening : " + info.periode, 8, y);
+    doc.text("Rp. :", 120, y);
+    doc.text(parseIDR(r.rptag).toLocaleString("id-ID"), 175, y, { align: "right" }); y += 4;
 
-    doc.text("Rp. :", 120, 63);
-    doc.text("Rp. :", 120, 67);
-    doc.text("------------------------", 120, 70);
-    doc.text("Rp. :", 120, 73);
+    doc.text("Jumlah Biaya Keterlambatan s.d bulan : " + info.blnIni, 8, y);
+    doc.text("Rp. :", 120, y);
+    doc.text(parseIDR(r.rpbk).toLocaleString("id-ID"), 175, y, { align: "right" }); y += 4;
 
-    doc.text(parseIDR(r.rptag).toLocaleString("id-ID"), 175, 63, { align: "right" });
-    doc.text(parseIDR(r.rpbk).toLocaleString("id-ID"), 175, 67, { align: "right" });
-    doc.text(parseIDR(r.jumlah).toLocaleString("id-ID"), 175, 73, { align: "right" });
+    doc.text("------------------------", 120, y); y += 3;
 
-    // Body Paragraf
-    let y = 80;
-    const lh = 4; // Jarak antar baris
-    
+    doc.text("Jumlah Tunggakan (belum termasuk biaya Administrasi)", 8, y);
+    doc.text("Rp. :", 120, y);
+    doc.text(parseIDR(r.jumlah).toLocaleString("id-ID"), 175, y, { align: "right" }); y += 6;
+
+    // Body Paragraf dengan line height lebih rapat agar tidak memotong
+    const lh = 3.3; 
     let body1Text = doc.splitTextToSize("     " + info.body1, 203);
     doc.text(body1Text, 8, y); y += body1Text.length * lh;
 
@@ -750,41 +744,35 @@ function createPDF(r) {
 
     // Peringatan Bold
     y += 2;
-    doc.setFont("courier", "bold");
     doc.text("UNTUK MENGHINDARI RESIKO, MOHON TIDAK TITIP PEMBAYARAN REKENING KEPADA PETUGAS", 8, y);
 
     // Area Bawah (Kotak Putus-Putus & Tanda Tangan)
-    let boxY = y + 5;
+    let boxY = y + 4;
     
     // Render Kotak Putus-putus
     doc.setLineDash([2, 2], 0);
-    doc.rect(15, boxY, 110, 11); 
-    doc.setLineDash([]); // Kembalikan border ke solid agar elemen lain tidak terpengaruh
+    doc.rect(15, boxY, 95, 9); 
+    doc.setLineDash([]); 
     
-    // Teks dalam kotak
-    doc.setFont("courier", "normal");
-    doc.text("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 70, boxY + 4.5, { align: "center" });
-    doc.text("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 70, boxY + 8.5, { align: "center" });
+    doc.text("PADA WAKTU MELAKUKAN PEMBAYARAN DIMOHON", 62.5, boxY + 3.5, { align: "center" });
+    doc.text("MENUNJUKKAN SURAT PEMBERITAHUAN INI", 62.5, boxY + 7.5, { align: "center" });
 
-    // Blok Tanda Tangan Manager
+    // Blok Tanda Tangan Manager (Tgl dipindah ke atas Manager)
     let sigX = 170;
-    doc.setFont("courier", "bold");
     doc.text(`TULUNG, ${info.tgl}`, sigX, boxY + 2, { align: "center" });
     doc.text("MANAGER", sigX, boxY + 6, { align: "center" });
-    doc.text("MARTONO AJI PRABOWO", sigX, boxY + 21, { align: "center" });
+    doc.text("MARTONO AJI PRABOWO", sigX, boxY + 18, { align: "center" });
 
     // Tanggal Stand dan Nyala di Bawah Kotak
-    doc.setFont("courier", "normal");
-    doc.text("TGL. STAND PUTUS PELANGGAN : ....................", 70, boxY + 16, { align: "center" });
-    doc.text("TGL. NYALA KEMBALI         : ....................", 70, boxY + 21, { align: "center" });
+    y = boxY + 13;
+    doc.text("TGL. STAND PUTUS PELANGGAN : ....................", 15, y); y += 4;
+    doc.text("TGL. NYALA KEMBALI         : ....................", 15, y); y += 6;
 
     // Footer Surat
-    let footerY = boxY + 28;
-    doc.setFontSize(8);
-    doc.text("A5 TUL VI-01/PETUGAS PEMUTUS....................................", 8, footerY);
-    doc.text("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 8, footerY + 4);
+    doc.setFontSize(7.5);
+    doc.text("A5 TUL VI-01/PETUGAS PEMUTUS....................................", 8, y); y += 3.5;
+    doc.text("ABAIKAN PEMBERITAHUAN INI JIKA SUDAH MEMBAYAR TAGIHAN", 8, y);
 
-    // Render file PDF-nya
     doc.save(`Tunggakan_${r.idpel}.pdf`);
   }
 }
