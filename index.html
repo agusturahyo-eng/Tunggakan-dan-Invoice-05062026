@@ -671,7 +671,7 @@ function createPDF(r) {
     doc.text(`Nama             : ${r.nama}`, 15, 52); doc.text(`GarduTiang : ${r.gardu || '-'}`, 120, 52);
     doc.text(`Idpel              : ${r.idpel}`, 15, 57); doc.text(`Koked          : ${r.koked}`, 120, 57);
     doc.text(`Alamat           : ${r.alamat || '-'}`, 15, 62); doc.text(`Tarif / Daya   : ${r.tarif} / ${r.daya}`, 15, 67); doc.text(`No. Kwh       : ${r.no_kwh || '-'}`, 120, 67);
-    let txt = `Bersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan ${info.blnIniFull} 2026 adalah ${parseIDR(r.jumlah || r.Jumlah || r.JUMLAH).toLocaleString("id-ID")}. Agar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi.`;
+    let txt = `Bersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan ${info.blnIniFull} 2026 adalah ${parseIDR(r.jumlah || r.Jumlah || r.JUMLAH).toLocaleString("id-ID")}(Belum termasuk biaya admin Bank). Agar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi.`;
     doc.text(doc.splitTextToSize(txt, 180), 15, 80);
     doc.text("Batas akhir pembayaran tagihan listrik adalah tanggal 20 setiap bulannya & hari libur transaksi masih bisa dilakukan pada Loket-loket PPOB online. Apabila sampai dengan batas waktu yang ditentukan, tanggal 20 belum lunas, maka akan dilakukan pemutusan aliran listrik.", 15, 95, {maxWidth: 180});
     doc.text("Demikian atas perhatian dan kerjasamanya diucapkan terimakasih.", 15, 115);
