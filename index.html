@@ -847,7 +847,7 @@ function generateCanvasInvoice(r) {
   const blnIniFull = nBulanFull[date.getMonth()];
   const tglString = `${date.getDate()} ${nBulanFull[date.getMonth()]} ${date.getFullYear()}`;
 
-  const p1 = `     Bersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan ${blnIniFull} ${date.getFullYear()} adalah Rp ${parseIDR(r.jumlah || r.Jumlah || r.JUMLAH).toLocaleString("id-ID")}. Agar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi. Batas akhir pembayaran tagihan listrik adalah tanggal 20 setiap bulannya & hari libur transaksi masih bisa dilakukan pada Loket-loket PPOB online. Apabila sampai dengan batas waktu yang ditentukan, tanggal 20 belum lunas, maka akan dilakukan pemutusan aliran listrik.`;
+  const p1 = `     Bersama ini kami sampaikan bahwa Jumlah Total tagihan listrik bulan ${blnIniFull} ${date.getFullYear()} adalah Rp ${parseIDR(r.jumlah || r.Jumlah || r.JUMLAH).toLocaleString("id-ID")}(Belum termasuk biaya admin Bank). Agar terhindar dari pemutusan aliran listrik, kami berharap agar tagihan di atas segera dilunasi. Batas akhir pembayaran tagihan listrik adalah tanggal 20 setiap bulannya & hari libur transaksi masih bisa dilakukan pada Loket-loket PPOB online. Apabila sampai dengan batas waktu yang ditentukan, tanggal 20 belum lunas, maka akan dilakukan pemutusan aliran listrik.`;
   const p2 = `     Demikian atas perhatian dan kerjasamanya diucapkan terimakasih.`;
 
   const wrapText = (text, x, y, maxWidth, lineHeight) => {
